@@ -1,0 +1,90 @@
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+
+def load_env_file() -> None:
+    """Load .env when python-dotenv is installed."""
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+
+    load_dotenv()
+
+
+def _csv(name: str, default: str) -> list[str]:
+    raw = os.getenv(name, default)
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    return int(raw)
+
+
+@dataclass(frozen=True)
+class Settings:
+    youtube_api_key: str | None
+    gemini_api_key: str | None
+    gemini_model: str
+    elevenlabs_api_key: str | None
+    elevenlabs_voice_id: str
+    elevenlabs_model_id: str
+    elevenlabs_output_format: str
+    pexels_api_key: str | None
+    shotstack_api_key: str | None
+    shotstack_version: str
+    youtube_client_secrets_file: Path
+    youtube_token_file: Path
+    youtube_upload_privacy_status: str
+    youtube_upload_category_id: str
+    fifa_channel_handle: str
+    trend_regions: list[str]
+    max_trending_per_region: int
+    max_fifa_uploads: int
+    football_keywords: list[str]
+    output_dir: Path
+    script_seconds: int
+    max_signals_for_gemini: int
+
+    @classmethod
+    def from_env(cls) -> "Settings":
+        load_env_file()
+        return cls(
+            youtube_api_key=os.getenv("YOUTUBE_API_KEY"),
+            gemini_api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"),
+            gemini_model=os.getenv("GEMINI_MODEL", "gemini-3.5-flash"),
+            elevenlabs_api_key=os.getenv("ELEVENLABS_API_KEY"),
+            elevenlabs_voice_id=os.getenv("ELEVENLABS_VOICE_ID", "JBFqnCBsd6RMkjVDRZzb"),
+            elevenlabs_model_id=os.getenv("ELEVENLABS_MODEL_ID", "eleven_multilingual_v2"),
+            elevenlabs_output_format=os.getenv("ELEVENLABS_OUTPUT_FORMAT", "mp3_44100_128"),
+            pexels_api_key=os.getenv("PEXELS_API_KEY"),
+            shotstack_api_key=os.getenv("SHOTSTACK_API_KEY"),
+            shotstack_version=os.getenv("SHOTSTACK_VERSION", "stage"),
+            youtube_client_secrets_file=Path(os.getenv("YOUTUBE_CLIENT_SECRETS_FILE", "client_secret.json")),
+            youtube_token_file=Path(os.getenv("YOUTUBE_TOKEN_FILE", "token.json")),
+            youtube_upload_privacy_status=os.getenv("YOUTUBE_UPLOAD_PRIVACY_STATUS", "private"),
+            youtube_upload_category_id=os.getenv("YOUTUBE_UPLOAD_CATEGORY_ID", "17"),
+            fifa_channel_handle=os.getenv("FIFA_CHANNEL_HANDLE", "@FIFA"),
+            trend_regions=_csv("YOUTUBE_TREND_REGIONS", "US,GB,IN"),
+            max_trending_per_region=_int("MAX_TRENDING_PER_REGION", 25),
+            max_fifa_uploads=_int("MAX_FIFA_UPLOADS", 25),
+            football_keywords=_csv(
+                "FOOTBALL_KEYWORDS",
+                "football,soccer,fifa,world cup,worldcup,world cup 2026,2026 world cup,qualifier,qualifiers,fixture,squad,draw,goal,goals,striker,keeper,penalty",
+            ),
+            output_dir=Path(os.getenv("OUTPUT_DIR", "runs")),
+            script_seconds=_int("SCRIPT_SECONDS", 60),
+            max_signals_for_gemini=_int("MAX_SIGNALS_FOR_GEMINI", 35),
+        )
+
+    def require(self, value: str | None, label: str) -> str:
+        if not value:
+            raise RuntimeError(f"Missing {label}. Add it to .env or the environment.")
+        return value
+
