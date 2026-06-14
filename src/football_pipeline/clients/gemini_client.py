@@ -37,7 +37,7 @@ class GeminiTopicClient:
 
         client = genai.Client(api_key=api_key)
         # Use default Gemini model if not configured
-        model_name = getattr(self.settings, "gemini_model", None) or "gemini-1.5-flash"
+        model_name = getattr(self.settings, "gemini_model", None) or "gemini-3.5-flash"
         
         history_path = Path("topic_history.json")
         history = []
