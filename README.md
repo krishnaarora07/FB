@@ -4,7 +4,7 @@ This repo is a fully automated pipeline for making short, trend-reactive footbal
 
 1. Collects YouTube sports/trending metadata plus recent uploads from the official FIFA handle.
 2. Uses Gemini Flash to choose a World Cup-related angle and write a quirky voiceover script.
-3. Uses Google Text-to-Speech (gTTS) to generate the voiceover.
+3. Uses Microsoft Edge Neural TTS to generate highly realistic, natural-sounding voiceovers.
 4. Finds portrait B-roll from Pexels.
 5. Renders the video locally with MoviePy (no cloud API needed).
 6. Optionally uploads the rendered video to YouTube.
@@ -34,7 +34,7 @@ Outputs are written under `runs/<timestamp>/`.
 
 ## Build Assets Without Rendering
 
-This collects signals, writes a script, fetches B-roll metadata, and generates a local gTTS MP3. It does not render the video:
+This collects signals, writes a script, fetches B-roll metadata, and generates a local Edge TTS MP3. It does not render the video:
 
 ```powershell
 football-pipeline run

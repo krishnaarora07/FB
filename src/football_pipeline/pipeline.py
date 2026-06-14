@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from .clients.gtts_client import GTTSClient
+from .clients.edge_tts_client import EdgeTtsClient
 from .clients.gemini_client import GeminiTopicClient
 from .clients.pexels_client import PexelsClient
 from .clients.youtube_discovery import YouTubeDiscoveryClient
@@ -33,7 +33,7 @@ class FootballPipeline:
         return PexelsClient(self.settings).search_broll(queries)
 
     def generate_voiceover(self, topic: TopicPackage, run_dir: Path) -> Path:
-        return GTTSClient(self.settings).create_voiceover(topic.script, run_dir / "voiceover.mp3")
+        return EdgeTtsClient(self.settings).create_voiceover(topic.script, run_dir / "voiceover.mp3")
 
     def download_broll(self, broll_assets: list[BrollAsset], run_dir: Path) -> list[Path]:
         import urllib.request
