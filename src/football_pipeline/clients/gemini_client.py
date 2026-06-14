@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 import re
 from datetime import date
+from pathlib import Path
 
 from ..config import Settings
-from ..models import TopicPackage, VideoSignal
+from ..models import TopicPackage, VideoSignal, read_json, write_json
 
 
 def _parse_jsonish(text: str) -> dict:
@@ -27,6 +28,7 @@ class GeminiTopicClient:
         self.settings = settings
 
     def choose_topic(self, videos: list[VideoSignal]) -> TopicPackage:
+        # Retrieve API key, raise if missing
         api_key = self.settings.require(self.settings.gemini_api_key, "GEMINI_API_KEY or GOOGLE_API_KEY")
         try:
             from google import genai
@@ -34,21 +36,71 @@ class GeminiTopicClient:
             raise RuntimeError("Install google-genai to use Gemini: pip install -e .") from exc
 
         client = genai.Client(api_key=api_key)
-        prompt = self._build_prompt(videos)
-        response = client.models.generate_content(
-            model=self.settings.gemini_model,
-            contents=prompt,
-        )
-        return TopicPackage.from_dict(_parse_jsonish(response.text or ""))
+        # Use default Gemini model if not configured
+        model_name = getattr(self.settings, "gemini_model", None) or "gemini-1.5-flash"
+        
+        history_path = Path("topic_history.json")
+        history = []
+        if history_path.exists():
+            try:
+                history = read_json(history_path)
+            except Exception:
+                pass
 
-    def _build_prompt(self, videos: list[VideoSignal]) -> str:
+        prompt = self._build_prompt(videos, history)
+        # Retry up to three times if Gemini returns an empty response
+        for attempt in range(1, 4):
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+            )
+            # Prefer response.text if available
+            if getattr(response, "text", None):
+                topic = TopicPackage.from_dict(_parse_jsonish(response.text))
+                self._save_history(history_path, history, topic.topic_title)
+                return topic
+            # Fallback: extract text from first candidate if present
+            if hasattr(response, "candidates") and response.candidates:
+                candidate = response.candidates[0]
+                # Different library versions may expose parts differently
+                try:
+                    part = candidate.content.parts[0]
+                    candidate_text = getattr(part, "text", None) or getattr(part, "display_text", None)
+                except Exception:
+                    candidate_text = None
+                if candidate_text:
+                    topic = TopicPackage.from_dict(_parse_jsonish(candidate_text))
+                    self._save_history(history_path, history, topic.topic_title)
+                    return topic
+            # If no text, wait and retry (exponential back‑off)
+            if attempt < 3:
+                import time
+                time.sleep(attempt * 5)
+        # After three attempts, raise a clear error
+        raise RuntimeError(
+            "Gemini returned an empty response after 3 attempts – check your API key, model name, and network connectivity."
+        )
+
+    def _save_history(self, path: Path, history: list[str], new_topic: str) -> None:
+        history.append(new_topic)
+        # Keep only the last 50 topics to avoid overflowing the prompt
+        write_json(path, history[-50:])
+
+    def _build_prompt(self, videos: list[VideoSignal], history: list[str]) -> str:
         signal_limit = self.settings.max_signals_for_gemini
         payload = [video.prompt_dict() for video in videos[:signal_limit]]
+        
+        history_str = ""
+        if history:
+            history_str = "\nCRITICAL: Do NOT repeat or use any of the following previously covered topics:\n"
+            for t in history:
+                history_str += f"- {t}\n"
+
         return f"""
 You are a sharp football video producer making a short-form YouTube video for fans following the FIFA World Cup 2026 conversation.
 
 Today is {date.today().isoformat()}. Use the YouTube metadata below as trend signals, not as footage to reuse.
-
+{history_str}
 Pick one timely, football-specific topic that is explicitly connected to the upcoming FIFA World Cup 2026. Then write a quirky, high-retention voiceover script for about {self.settings.script_seconds} seconds.
 
 Rules:

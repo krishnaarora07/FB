@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from .clients.elevenlabs_client import ElevenLabsClient
+from .clients.gtts_client import GTTSClient
 from .clients.gemini_client import GeminiTopicClient
 from .clients.pexels_client import PexelsClient
 from .clients.shotstack_client import ShotstackClient
@@ -35,7 +35,7 @@ class FootballPipeline:
         return PexelsClient(self.settings).search_broll(queries)
 
     def generate_voiceover(self, topic: TopicPackage, run_dir: Path) -> Path:
-        return ElevenLabsClient(self.settings).create_voiceover(topic.script, run_dir / "voiceover.mp3")
+        return GTTSClient(self.settings).create_voiceover(topic.script, run_dir / "voiceover.mp3")
 
     def build_edit_json(self, topic: TopicPackage, broll: list[BrollAsset], voiceover_url: str) -> dict:
         return build_shotstack_edit(

@@ -114,7 +114,7 @@ def run_command(args: argparse.Namespace, settings: Settings) -> int:
     broll = pipeline.fetch_broll(topic)
     write_json(run_dir / "broll.json", broll)
 
-    print("Generating ElevenLabs voiceover...")
+    print("Generating voiceover...")
     voiceover_path = pipeline.generate_voiceover(topic, run_dir)
 
     if not args.render and not args.upload:

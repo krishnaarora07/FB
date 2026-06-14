@@ -1,0 +1,64 @@
+name: Daily Football Pipeline
+
+on:
+  schedule:
+    # Runs at 10:00 AM UTC every day
+    - cron: '0 10 * * *'
+  workflow_dispatch: # Allows manual trigger from the Actions tab
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed to commit the history and tokens back
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Create .env from secrets
+        run: |
+          cat << EOF > .env
+          YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }}
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL=gemini-1.5-flash
+          PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}
+          SHOTSTACK_API_KEY=${{ secrets.SHOTSTACK_API_KEY }}
+          SHOTSTACK_VERSION=stage
+          YOUTUBE_CLIENT_SECRETS_FILE=client_secret.json
+          YOUTUBE_TOKEN_FILE=token.json
+          YOUTUBE_UPLOAD_PRIVACY_STATUS=private
+          YOUTUBE_UPLOAD_CATEGORY_ID=17
+          FIFA_CHANNEL_HANDLE=@FIFA
+          OUTPUT_DIR=runs
+          SCRIPT_SECONDS=60
+          MAX_SIGNALS_FOR_GEMINI=35
+          EOF
+
+      - name: Create YouTube secrets from GitHub Secrets
+        run: |
+          echo '${{ secrets.YOUTUBE_CLIENT_SECRETS_JSON }}' > client_secret.json
+          echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > token.json
+
+      - name: Run pipeline
+        run: football-pipeline run --render --upload
+
+      - name: Commit state changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add topic_history.json token.json
+          git diff --staged --quiet || git commit -m "chore: update topic history and youtube token"
+          git push
