@@ -56,7 +56,9 @@ class FootballPipeline:
 
     def download_render(self, render_url: str, run_dir: Path) -> Path:
         output = run_dir / "final.mp4"
-        output.write_bytes(request_bytes("GET", render_url, timeout=600))
+        import urllib.request
+        print("  Downloading rendered video from Shotstack...")
+        urllib.request.urlretrieve(render_url, str(output))
         return output
 
     def upload_to_youtube(self, video_path: Path, topic: TopicPackage) -> str:

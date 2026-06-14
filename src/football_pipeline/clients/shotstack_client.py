@@ -98,6 +98,7 @@ class ShotstackClient:
                 if status == "failed":
                     raise RuntimeError(f"Shotstack render failed: {response}")
                 return response
+            print(f"  Render status: {status}...")
             time.sleep(poll_seconds)
         raise TimeoutError(f"Timed out waiting for Shotstack render {render_id}")
 
