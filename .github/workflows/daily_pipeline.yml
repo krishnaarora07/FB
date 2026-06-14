@@ -35,6 +35,7 @@ jobs:
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL=gemini-3.5-flash
           PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}
+          CREATOMATE_API_KEY=${{ secrets.CREATOMATE_API_KEY }}
           SHOTSTACK_API_KEY=${{ secrets.SHOTSTACK_API_KEY }}
           SHOTSTACK_VERSION=stage
           YOUTUBE_CLIENT_SECRETS_FILE=client_secret.json

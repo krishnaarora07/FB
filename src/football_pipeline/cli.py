@@ -71,10 +71,10 @@ def render_command(args: argparse.Namespace, settings: Settings) -> int:
     voiceover_path = Path(args.voiceover)
     voiceover_url = args.voiceover_url or pipeline.upload_voiceover_to_shotstack(voiceover_path)
     edit = pipeline.build_edit_json(topic, broll, voiceover_url)
-    write_json(out_dir / "shotstack_edit.json", edit)
+    write_json(out_dir / "creatomate_edit.json", edit)
     render_id, response, render_url = pipeline.render(edit)
-    write_json(out_dir / "shotstack_render.json", response)
-    print(f"Shotstack render id: {render_id}")
+    write_json(out_dir / "creatomate_render.json", response)
+    print(f"Creatomate render id: {render_id}")
     if render_url:
         final = pipeline.download_render(render_url, out_dir)
         _print_path("Final video", final)
@@ -119,20 +119,20 @@ def run_command(args: argparse.Namespace, settings: Settings) -> int:
 
     if not args.render and not args.upload:
         preview_edit = pipeline.build_edit_json(topic, broll, "https://example.com/voiceover.mp3")
-        write_json(run_dir / "shotstack_edit.preview.json", preview_edit)
-        print("Prepared assets and preview edit JSON. Pass --render to submit to Shotstack.")
+        write_json(run_dir / "creatomate_edit.preview.json", preview_edit)
+        print("Prepared assets and preview edit JSON. Pass --render to submit to Creatomate.")
         _print_path("Run directory", run_dir)
         return 0
 
     print("Uploading voiceover to Shotstack...")
     voiceover_url = pipeline.upload_voiceover_to_shotstack(voiceover_path)
     edit = pipeline.build_edit_json(topic, broll, voiceover_url)
-    write_json(run_dir / "shotstack_edit.json", edit)
+    write_json(run_dir / "creatomate_edit.json", edit)
 
-    print("Submitting Shotstack render...")
+    print("Submitting Creatomate render...")
     render_id, response, render_url = pipeline.render(edit)
-    write_json(run_dir / "shotstack_render.json", response)
-    print(f"Shotstack render id: {render_id}")
+    write_json(run_dir / "creatomate_render.json", response)
+    print(f"Creatomate render id: {render_id}")
 
     final_path = None
     if render_url:
@@ -190,7 +190,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     run = subparsers.add_parser("run")
     run.add_argument("--dry-run", action="store_true", help="Stop after topic/script generation.")
-    run.add_argument("--render", action="store_true", help="Submit the Shotstack render.")
+    run.add_argument("--render", action="store_true", help="Submit the Creatomate render.")
     run.add_argument("--upload", action="store_true", help="Upload the rendered video to YouTube.")
     run.add_argument("--run-dir")
     run.set_defaults(func=run_command)

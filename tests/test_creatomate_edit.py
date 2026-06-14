@@ -1,11 +1,11 @@
 import unittest
 
 from football_pipeline.models import BrollAsset, TopicPackage
-from football_pipeline.shotstack_edit import build_shotstack_edit
+from football_pipeline.creatomate_edit import build_creatomate_edit
 
 
-class ShotstackEditTests(unittest.TestCase):
-    def test_build_shotstack_edit_uses_vertical_output_and_alias_captions(self) -> None:
+class CreatomateEditTests(unittest.TestCase):
+    def test_build_creatomate_edit_uses_vertical_output_and_transcript(self) -> None:
         topic = TopicPackage(
             topic_title="Can this midfield survive the World Cup?",
             angle="A short angle.",
@@ -29,12 +29,17 @@ class ShotstackEditTests(unittest.TestCase):
             )
         ]
 
-        edit = build_shotstack_edit(topic, broll, "https://example.com/voice.mp3", target_seconds=60)
+        edit = build_creatomate_edit(topic, broll, "https://example.com/voice.mp3", target_seconds=60)
 
-        self.assertEqual(edit["output"]["aspectRatio"], "9:16")
-        self.assertEqual(edit["timeline"]["tracks"][1]["clips"][0]["asset"]["src"], "alias://voiceover")
-        self.assertEqual(edit["timeline"]["tracks"][2]["clips"][0]["alias"], "voiceover")
-        self.assertEqual(edit["timeline"]["tracks"][3]["clips"][0]["asset"]["volume"], 0)
+        self.assertEqual(edit["output_format"], "mp4")
+        self.assertEqual(edit["width"], 1080)
+        self.assertEqual(edit["height"], 1920)
+        
+        # Check elements
+        elements = edit["elements"]
+        self.assertTrue(any(e["type"] == "video" for e in elements))
+        self.assertTrue(any(e["type"] == "audio" for e in elements))
+        self.assertTrue(any(e.get("transcript_source") for e in elements))
 
 
 if __name__ == "__main__":

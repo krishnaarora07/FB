@@ -37,6 +37,7 @@ class Settings:
     elevenlabs_model_id: str
     elevenlabs_output_format: str
     pexels_api_key: str | None
+    creatomate_api_key: str | None
     shotstack_api_key: str | None
     shotstack_version: str
     youtube_client_secrets_file: Path
@@ -64,6 +65,7 @@ class Settings:
             elevenlabs_model_id=os.getenv("ELEVENLABS_MODEL_ID", "eleven_multilingual_v2"),
             elevenlabs_output_format=os.getenv("ELEVENLABS_OUTPUT_FORMAT", "mp3_44100_128"),
             pexels_api_key=os.getenv("PEXELS_API_KEY"),
+            creatomate_api_key=os.getenv("CREATOMATE_API_KEY"),
             shotstack_api_key=os.getenv("SHOTSTACK_API_KEY"),
             shotstack_version=os.getenv("SHOTSTACK_VERSION", "stage"),
             youtube_client_secrets_file=Path(os.getenv("YOUTUBE_CLIENT_SECRETS_FILE", "client_secret.json")),

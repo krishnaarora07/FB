@@ -7,8 +7,10 @@ from .clients.gtts_client import GTTSClient
 from .clients.gemini_client import GeminiTopicClient
 from .clients.pexels_client import PexelsClient
 from .clients.shotstack_client import ShotstackClient
+from .clients.creatomate_client import CreatomateClient
 from .clients.youtube_discovery import YouTubeDiscoveryClient
 from .config import Settings
+from .creatomate_edit import build_creatomate_edit
 from .http import request_bytes
 from .models import BrollAsset, TopicPackage, VideoSignal, read_json, write_json
 from .shotstack_edit import build_shotstack_edit
@@ -38,16 +40,17 @@ class FootballPipeline:
         return GTTSClient(self.settings).create_voiceover(topic.script, run_dir / "voiceover.mp3")
 
     def build_edit_json(self, topic: TopicPackage, broll: list[BrollAsset], voiceover_url: str) -> dict:
-        return build_shotstack_edit(
-            topic,
-            broll,
-            voiceover_url,
+        return build_creatomate_edit(
+            topic=topic,
+            broll_assets=broll,
+            voiceover_url=voiceover_url,
             target_seconds=self.settings.script_seconds,
         )
 
     def render(self, edit: dict) -> tuple[str, dict, str | None]:
-        client = ShotstackClient(self.settings)
+        client = CreatomateClient(self.settings)
         render_id = client.render(edit)
+        print(f"  Started Creatomate render: {render_id}")
         response = client.wait_for_render(render_id)
         return render_id, response, client.find_output_url(response)
 
