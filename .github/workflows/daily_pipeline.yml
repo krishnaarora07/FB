@@ -39,7 +39,7 @@ jobs:
           SHOTSTACK_VERSION=stage
           YOUTUBE_CLIENT_SECRETS_FILE=client_secret.json
           YOUTUBE_TOKEN_FILE=token.json
-          YOUTUBE_UPLOAD_PRIVACY_STATUS=private
+          YOUTUBE_UPLOAD_PRIVACY_STATUS=public
           YOUTUBE_UPLOAD_CATEGORY_ID=17
           FIFA_CHANNEL_HANDLE=@FIFA
           OUTPUT_DIR=runs
