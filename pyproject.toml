@@ -14,7 +14,7 @@ dependencies = [
     "google-genai>=1.0.0",
     "python-dotenv>=1.0.0",
     "gtts>=2.3.0",
-    "moviepy>=2.0.0.dev2",
+    "moviepy<2.0.0",
 ]
 
 [project.scripts]
