@@ -42,7 +42,12 @@ class FootballPipeline:
         for i, asset in enumerate(broll_assets):
             output = run_dir / f"broll_{i}.mp4"
             print(f"  Downloading B-roll {i} from Pexels...")
-            urllib.request.urlretrieve(asset.url, str(output))
+            req = urllib.request.Request(
+                asset.url,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+            )
+            with urllib.request.urlopen(req) as response, open(output, 'wb') as out_file:
+                out_file.write(response.read())
             paths.append(output)
         return paths
 
