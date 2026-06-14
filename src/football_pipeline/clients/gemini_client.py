@@ -48,12 +48,21 @@ class GeminiTopicClient:
                 pass
 
         prompt = self._build_prompt(videos, history)
-        # Retry up to three times if Gemini returns an empty response
+        # Retry up to three times if Gemini returns an empty response or 429 rate limit
         for attempt in range(1, 4):
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-            )
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+            except genai.errors.ClientError as exc:
+                if attempt < 3 and exc.code == 429:
+                    import time
+                    print(f"  Gemini rate limit exceeded. Waiting 35 seconds... (Attempt {attempt}/3)")
+                    time.sleep(35)
+                    continue
+                raise
+
             # Prefer response.text if available
             if getattr(response, "text", None):
                 topic = TopicPackage.from_dict(_parse_jsonish(response.text))
