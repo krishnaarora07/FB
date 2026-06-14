@@ -9,7 +9,6 @@ from .clients.pexels_client import PexelsClient
 from .clients.youtube_discovery import YouTubeDiscoveryClient
 from .config import Settings
 from .moviepy_edit import build_moviepy_edit
-from .http import request_bytes
 from .models import BrollAsset, TopicPackage, VideoSignal, read_json, write_json
 from .youtube_upload import YouTubeUploader
 

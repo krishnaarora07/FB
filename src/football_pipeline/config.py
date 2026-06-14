@@ -32,10 +32,6 @@ class Settings:
     youtube_api_key: str | None
     gemini_api_key: str | None
     gemini_model: str
-    elevenlabs_api_key: str | None
-    elevenlabs_voice_id: str
-    elevenlabs_model_id: str
-    elevenlabs_output_format: str
     pexels_api_key: str | None
     youtube_client_secrets_file: Path
     youtube_token_file: Path
@@ -57,10 +53,6 @@ class Settings:
             youtube_api_key=os.getenv("YOUTUBE_API_KEY"),
             gemini_api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"),
             gemini_model=os.getenv("GEMINI_MODEL", "gemini-3.5-flash"),
-            elevenlabs_api_key=os.getenv("ELEVENLABS_API_KEY"),
-            elevenlabs_voice_id=os.getenv("ELEVENLABS_VOICE_ID", "JBFqnCBsd6RMkjVDRZzb"),
-            elevenlabs_model_id=os.getenv("ELEVENLABS_MODEL_ID", "eleven_multilingual_v2"),
-            elevenlabs_output_format=os.getenv("ELEVENLABS_OUTPUT_FORMAT", "mp3_44100_128"),
             pexels_api_key=os.getenv("PEXELS_API_KEY"),
             youtube_client_secrets_file=Path(os.getenv("YOUTUBE_CLIENT_SECRETS_FILE", "client_secret.json")),
             youtube_token_file=Path(os.getenv("YOUTUBE_TOKEN_FILE", "token.json")),

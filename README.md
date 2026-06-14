@@ -1,13 +1,13 @@
 # Football Trend Video Pipeline
 
-This repo is a starter pipeline for making short, trend-reactive football videos:
+This repo is a fully automated pipeline for making short, trend-reactive football videos:
 
 1. Collects YouTube sports/trending metadata plus recent uploads from the official FIFA handle.
 2. Uses Gemini Flash to choose a World Cup-related angle and write a quirky voiceover script.
-3. Uses ElevenLabs to generate the voiceover.
+3. Uses Google Text-to-Speech (gTTS) to generate the voiceover.
 4. Finds portrait B-roll from Pexels.
-5. Builds and submits a Shotstack edit.
-6. Optionally downloads the rendered video and uploads it to YouTube.
+5. Renders the video locally with MoviePy (no cloud API needed).
+6. Optionally uploads the rendered video to YouTube.
 
 The pipeline uses YouTube videos as discovery signals only. It does not download or reuse YouTube footage in the final edit; the rendered video is assembled from generated narration and Pexels footage.
 
@@ -24,7 +24,7 @@ Fill in `.env` with API keys.
 
 ## Quick Dry Run
 
-Dry run collects YouTube signals and asks Gemini for a topic/script, then stops before ElevenLabs, Pexels, Shotstack, or upload:
+Dry run collects YouTube signals and asks Gemini for a topic/script, then stops before Pexels, rendering, or upload:
 
 ```powershell
 football-pipeline run --dry-run
@@ -34,15 +34,15 @@ Outputs are written under `runs/<timestamp>/`.
 
 ## Build Assets Without Rendering
 
-This collects signals, writes a script, fetches B-roll metadata, generates a local ElevenLabs MP3, and writes a Shotstack edit JSON. It does not submit the render:
+This collects signals, writes a script, fetches B-roll metadata, and generates a local gTTS MP3. It does not render the video:
 
 ```powershell
 football-pipeline run
 ```
 
-## Render With Shotstack
+## Render Locally With MoviePy
 
-Shotstack needs remote/public URLs. The pipeline requests a Shotstack signed upload URL, uploads the generated MP3, then uses that URL in the edit:
+MoviePy renders the video locally using ffmpeg. No cloud API keys needed:
 
 ```powershell
 football-pipeline run --render
@@ -96,4 +96,3 @@ football-pipeline render --topic runs/manual/topic.json --broll runs/manual/brol
 - Review every script before publishing. Trend automation can overstate facts if source metadata is thin.
 - Check Pexels attribution and license requirements for your channel workflow.
 - YouTube Data API quotas vary by endpoint; collection is intentionally metadata-first to keep cost and rights risk low.
-
