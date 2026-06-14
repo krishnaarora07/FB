@@ -13,7 +13,6 @@ from .config import Settings
 from .creatomate_edit import build_creatomate_edit
 from .http import request_bytes
 from .models import BrollAsset, TopicPackage, VideoSignal, read_json, write_json
-from .shotstack_edit import build_shotstack_edit
 from .youtube_upload import YouTubeUploader
 
 
