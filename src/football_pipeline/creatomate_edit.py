@@ -73,8 +73,8 @@ def build_creatomate_edit(
         "background_color": "rgba(7, 16, 20, 0.72)",
         "background_border_radius": "8px",
         "padding": "22px",
-        "y_alignment": "center",
-        "x_alignment": "center",
+        "y_alignment": "50%",
+        "x_alignment": "50%",
         "animations": [
             {"time": "start", "duration": 0.5, "type": "fade", "transition": True},
             {"time": "end", "duration": 0.5, "type": "fade", "transition": True}
@@ -92,8 +92,8 @@ def build_creatomate_edit(
         "x": "50%",
         "width": "90%",
         "height": "20%",
-        "y_alignment": "center",
-        "x_alignment": "center",
+        "y_alignment": "50%",
+        "x_alignment": "50%",
         "font_family": "Montserrat",
         "font_weight": "800",
         "fill_color": "#FFFFFF",
