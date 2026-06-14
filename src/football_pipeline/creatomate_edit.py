@@ -71,8 +71,8 @@ def build_creatomate_edit(
         "font_weight": "800",
         "fill_color": "#FFFFFF",
         "background_color": "rgba(7, 16, 20, 0.72)",
-        "background_border_radius": "8px",
-        "padding": "22px",
+        "background_border_radius": "2%",
+        "padding": "5%",
         "y_alignment": "50%",
         "x_alignment": "50%",
         "animations": [
@@ -98,10 +98,10 @@ def build_creatomate_edit(
         "font_weight": "800",
         "fill_color": "#FFFFFF",
         "stroke_color": "#000000",
-        "stroke_width": "3px",
+        "stroke_width": "0.5%",
         "background_color": "rgba(0, 0, 0, 0.2)",
-        "background_border_radius": "8px",
-        "padding": "18px",
+        "background_border_radius": "2%",
+        "padding": "4%",
         "transcript_effect": "pop",
         "transcript_color": "#F7C948"
     })
