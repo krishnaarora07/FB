@@ -6,11 +6,9 @@ from pathlib import Path
 from .clients.gtts_client import GTTSClient
 from .clients.gemini_client import GeminiTopicClient
 from .clients.pexels_client import PexelsClient
-from .clients.shotstack_client import ShotstackClient
-from .clients.creatomate_client import CreatomateClient
 from .clients.youtube_discovery import YouTubeDiscoveryClient
 from .config import Settings
-from .creatomate_edit import build_creatomate_edit
+from .moviepy_edit import build_moviepy_edit
 from .http import request_bytes
 from .models import BrollAsset, TopicPackage, VideoSignal, read_json, write_json
 from .youtube_upload import YouTubeUploader
@@ -38,30 +36,19 @@ class FootballPipeline:
     def generate_voiceover(self, topic: TopicPackage, run_dir: Path) -> Path:
         return GTTSClient(self.settings).create_voiceover(topic.script, run_dir / "voiceover.mp3")
 
-    def build_edit_json(self, topic: TopicPackage, broll: list[BrollAsset], voiceover_url: str) -> dict:
-        return build_creatomate_edit(
-            topic=topic,
-            broll_assets=broll,
-            voiceover_url=voiceover_url,
-            target_seconds=self.settings.script_seconds,
-        )
-
-    def render(self, edit: dict) -> tuple[str, dict, str | None]:
-        client = CreatomateClient(self.settings)
-        render_id = client.render(edit)
-        print(f"  Started Creatomate render: {render_id}")
-        response = client.wait_for_render(render_id)
-        return render_id, response, client.find_output_url(response)
-
-    def upload_voiceover_to_shotstack(self, voiceover_path: Path) -> str:
-        return ShotstackClient(self.settings).upload_file(voiceover_path, content_type="audio/mpeg")
-
-    def download_render(self, render_url: str, run_dir: Path) -> Path:
-        output = run_dir / "final.mp4"
+    def download_broll(self, broll_assets: list[BrollAsset], run_dir: Path) -> list[Path]:
         import urllib.request
-        print("  Downloading rendered video from Shotstack...")
-        urllib.request.urlretrieve(render_url, str(output))
-        return output
+        paths = []
+        for i, asset in enumerate(broll_assets):
+            output = run_dir / f"broll_{i}.mp4"
+            print(f"  Downloading B-roll {i} from Pexels...")
+            urllib.request.urlretrieve(asset.url, str(output))
+            paths.append(output)
+        return paths
+
+    def render_video(self, topic: TopicPackage, broll_paths: list[Path], voiceover_path: Path, run_dir: Path) -> Path:
+        output_path = run_dir / "final.mp4"
+        return build_moviepy_edit(topic, broll_paths, voiceover_path, output_path)
 
     def upload_to_youtube(self, video_path: Path, topic: TopicPackage) -> str:
         return YouTubeUploader(self.settings).upload(video_path, topic)

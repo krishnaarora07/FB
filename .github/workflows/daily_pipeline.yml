@@ -25,7 +25,13 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg imagemagick
+          sudo sed -i 's/<policy domain="path" rights="none" pattern="@\*"\/>/<!-- <policy domain="path" rights="none" pattern="@*"\/> -->/g' /etc/ImageMagick-6/policy.xml || true
+
+      - name: Install Python dependencies
         run: pip install -e .
 
       - name: Create .env from secrets
@@ -35,9 +41,6 @@ jobs:
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL=gemini-3.5-flash
           PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}
-          CREATOMATE_API_KEY=${{ secrets.CREATOMATE_API_KEY }}
-          SHOTSTACK_API_KEY=${{ secrets.SHOTSTACK_API_KEY }}
-          SHOTSTACK_VERSION=stage
           YOUTUBE_CLIENT_SECRETS_FILE=client_secret.json
           YOUTUBE_TOKEN_FILE=token.json
           YOUTUBE_UPLOAD_PRIVACY_STATUS=public

@@ -69,17 +69,10 @@ def render_command(args: argparse.Namespace, settings: Settings) -> int:
     topic = load_topic(Path(args.topic))
     broll = load_broll(Path(args.broll))
     voiceover_path = Path(args.voiceover)
-    voiceover_url = args.voiceover_url or pipeline.upload_voiceover_to_shotstack(voiceover_path)
-    edit = pipeline.build_edit_json(topic, broll, voiceover_url)
-    write_json(out_dir / "creatomate_edit.json", edit)
-    render_id, response, render_url = pipeline.render(edit)
-    write_json(out_dir / "creatomate_render.json", response)
-    print(f"Creatomate render id: {render_id}")
-    if render_url:
-        final = pipeline.download_render(render_url, out_dir)
-        _print_path("Final video", final)
-    else:
-        print("Render completed, but no output URL was found in the response.")
+    
+    broll_paths = pipeline.download_broll(broll, out_dir)
+    final = pipeline.render_video(topic, broll_paths, voiceover_path, out_dir)
+    _print_path("Final video", final)
     return 0
 
 
@@ -118,28 +111,16 @@ def run_command(args: argparse.Namespace, settings: Settings) -> int:
     voiceover_path = pipeline.generate_voiceover(topic, run_dir)
 
     if not args.render and not args.upload:
-        preview_edit = pipeline.build_edit_json(topic, broll, "https://example.com/voiceover.mp3")
-        write_json(run_dir / "creatomate_edit.preview.json", preview_edit)
-        print("Prepared assets and preview edit JSON. Pass --render to submit to Creatomate.")
+        print("Prepared assets. Pass --render to build the final video locally with MoviePy.")
         _print_path("Run directory", run_dir)
         return 0
 
-    print("Uploading voiceover to Shotstack...")
-    voiceover_url = pipeline.upload_voiceover_to_shotstack(voiceover_path)
-    edit = pipeline.build_edit_json(topic, broll, voiceover_url)
-    write_json(run_dir / "creatomate_edit.json", edit)
+    print("Downloading B-roll assets...")
+    broll_paths = pipeline.download_broll(broll, run_dir)
 
-    print("Submitting Creatomate render...")
-    render_id, response, render_url = pipeline.render(edit)
-    write_json(run_dir / "creatomate_render.json", response)
-    print(f"Creatomate render id: {render_id}")
-
-    final_path = None
-    if render_url:
-        final_path = pipeline.download_render(render_url, run_dir)
-        _print_path("Final video", final_path)
-    else:
-        print("Render completed, but no output URL was found in the response.")
+    print("Rendering video locally with MoviePy...")
+    final_path = pipeline.render_video(topic, broll_paths, voiceover_path, run_dir)
+    _print_path("Final video", final_path)
 
     if args.upload:
         if not final_path:
@@ -179,7 +160,6 @@ def build_parser() -> argparse.ArgumentParser:
     render.add_argument("--topic", required=True)
     render.add_argument("--broll", required=True)
     render.add_argument("--voiceover", required=True)
-    render.add_argument("--voiceover-url")
     render.add_argument("--out", required=True)
     render.set_defaults(func=render_command)
 
@@ -190,7 +170,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     run = subparsers.add_parser("run")
     run.add_argument("--dry-run", action="store_true", help="Stop after topic/script generation.")
-    run.add_argument("--render", action="store_true", help="Submit the Creatomate render.")
+    run.add_argument("--render", action="store_true", help="Render the video locally.")
     run.add_argument("--upload", action="store_true", help="Upload the rendered video to YouTube.")
     run.add_argument("--run-dir")
     run.set_defaults(func=run_command)
