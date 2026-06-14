@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import math
 from pathlib import Path
 
 from moviepy.editor import (
     AudioFileClip,
-    ColorClip,
     CompositeVideoClip,
     TextClip,
     VideoFileClip,
@@ -83,7 +81,7 @@ def build_moviepy_edit(
             hook,
             fontsize=70,
             color='white',
-            bg_color='rgba(0,0,0,0.6)',
+            bg_color='black',
             font='Arial-Bold',
             method='caption',
             size=(900, None),
