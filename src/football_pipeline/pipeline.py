@@ -45,7 +45,7 @@ class FootballPipeline:
             output = run_dir / f"broll_{i}.mp4"
             print(f"  Downloading YouTube video {asset.video_id} (720p) for B-roll...")
             ydl_opts = {
-                'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best',
+                'format': 'best',
                 'outtmpl': str(output),
                 'quiet': True,
                 'no_warnings': True,
