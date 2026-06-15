@@ -110,9 +110,10 @@ You are a sharp football video producer making a short-form YouTube video for fa
 
 Today is {date.today().isoformat()}. Use the YouTube metadata below as trend signals, not as footage to reuse.
 {history_str}
-Pick one timely, football-specific topic that is explicitly connected to the upcoming FIFA World Cup 2026. Then write a quirky, high-retention voiceover script for about {self.settings.script_seconds} seconds.
+Pick one timely, football-specific topic that is explicitly connected to the upcoming FIFA World Cup 2026. Then write a quirky, high-retention voiceover script.
 
 Rules:
+- CRITICAL: The script MUST be strictly under 95 words. If it is longer, the video will exceed the 60-second YouTube Shorts limit and be rejected.
 - Do not invent match results, injuries, transfers, or fixtures that are not supported by the metadata.
 - The chosen topic must connect to FIFA World Cup 2026, national teams, squads, qualifiers, fixtures, venues, stars, tactical storylines, or fan debates.
 - Avoid pure club-football topics unless the angle clearly explains why they matter for World Cup 2026.

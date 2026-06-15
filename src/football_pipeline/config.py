@@ -67,7 +67,7 @@ class Settings:
                 "football,soccer,fifa,world cup,worldcup,world cup 2026,2026 world cup,qualifier,qualifiers,fixture,squad,draw,goal,goals,striker,keeper,penalty",
             ),
             output_dir=Path(os.getenv("OUTPUT_DIR", "runs")),
-            script_seconds=_int("SCRIPT_SECONDS", 60),
+            script_seconds=_int("SCRIPT_SECONDS", 45),
             max_signals_for_gemini=_int("MAX_SIGNALS_FOR_GEMINI", 35),
         )
 
