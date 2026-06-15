@@ -128,6 +128,12 @@ def run_command(args: argparse.Namespace, settings: Settings) -> int:
         print("Uploading to YouTube...")
         youtube_url = pipeline.upload_to_youtube(final_path, topic)
         print(youtube_url)
+        
+        if args.cleanup:
+            import shutil
+            print(f"Cleaning up run directory {run_dir} to save space...")
+            shutil.rmtree(run_dir, ignore_errors=True)
+            return 0
 
     _print_path("Run directory", run_dir)
     return 0
@@ -172,6 +178,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--dry-run", action="store_true", help="Stop after topic/script generation.")
     run.add_argument("--render", action="store_true", help="Render the video locally.")
     run.add_argument("--upload", action="store_true", help="Upload the rendered video to YouTube.")
+    run.add_argument("--cleanup", action="store_true", help="Delete the run directory after a successful upload.")
     run.add_argument("--run-dir")
     run.set_defaults(func=run_command)
     return parser

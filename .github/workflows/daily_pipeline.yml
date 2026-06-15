@@ -64,7 +64,7 @@ jobs:
           fi
 
       - name: Run pipeline
-        run: football-pipeline run --render --upload
+        run: football-pipeline run --render --upload --cleanup
 
       - name: Commit state changes
         run: |
