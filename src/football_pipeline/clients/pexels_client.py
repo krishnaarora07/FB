@@ -17,32 +17,43 @@ class PexelsClient:
         
         assets = []
         for query in queries:
-            url = f"https://api.pexels.com/videos/search?query={urllib.parse.quote(query)}&orientation=portrait&per_page=5"
+            # Clean query to avoid confusing Pexels API
+            clean_query = query.lower().replace("portrait", "").replace("vertical", "").strip()
+            
+            # Remove orientation=portrait restriction! MoviePy will perfectly center-crop 
+            # landscape videos to 9:16. This massively unlocks higher quality Pexels clips.
+            url = f"https://api.pexels.com/videos/search?query={urllib.parse.quote(clean_query)}&per_page=3"
             try:
                 resp = requests.get(url, headers=headers, timeout=10)
                 resp.raise_for_status()
                 data = resp.json()
                 videos = data.get("videos", [])
+                
+                # Fallback: If highly specific query yields 0 results, try a broader 2-word query
+                if not videos and len(clean_query.split()) > 2:
+                    simple_query = " ".join(clean_query.split()[:2])
+                    print(f"  Pexels found 0 results for '{clean_query}'. Falling back to '{simple_query}'...")
+                    url_fallback = f"https://api.pexels.com/videos/search?query={urllib.parse.quote(simple_query)}&per_page=3"
+                    resp_fallback = requests.get(url_fallback, headers=headers, timeout=10)
+                    if resp_fallback.status_code == 200:
+                        videos = resp_fallback.json().get("videos", [])
+
                 if videos:
-                    # Pick a random video from top 5
-                    video = random.choice(videos)
+                    # Pick one of the top 2 most relevant results (don't randomize top 5)
+                    video = random.choice(videos[:2])
                     files = video.get("video_files", [])
-                    # Filter and sort files (e.g., HD under 1080p width)
-                    hd_files = [f for f in files if f.get("quality") == "hd" and f.get("width", 2000) <= 1080]
-                    if hd_files:
-                        hd_files.sort(key=lambda x: x.get("width", 0), reverse=True)
-                        best_file = hd_files[0]
-                    elif files:
+                    
+                    if files:
+                        # Grab the absolute highest resolution available
+                        files.sort(key=lambda x: x.get("height", 0), reverse=True)
                         best_file = files[0]
-                    else:
-                        continue
                         
-                    asset = BrollAsset(
-                        id=str(video.get("id")),
-                        url=best_file.get("link"),
-                        source="pexels"
-                    )
-                    assets.append(asset)
+                        asset = BrollAsset(
+                            id=str(video.get("id")),
+                            url=best_file.get("link"),
+                            source="pexels"
+                        )
+                        assets.append(asset)
             except Exception as e:
                 print(f"  Warning: Pexels API failed for query '{query}': {e}")
                 
