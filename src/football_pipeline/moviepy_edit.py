@@ -108,11 +108,11 @@ def build_moviepy_edit(
     in_name = temp_output.name
     out_name = output_path.name
     
-    style = "Fontsize=70,PrimaryColour=&H00FFFFFF&,BackColour=&H80000000&,BorderStyle=3,Outline=0,Shadow=0,Alignment=2,MarginV=250"
+    style = "Fontsize=22,PrimaryColour=&H00FFFFFF&,BackColour=&H80000000&,BorderStyle=3,Outline=0,Shadow=0,Alignment=2,MarginV=60"
     command = [
         ffmpeg_exe, "-y", 
         "-i", in_name, 
-        "-vf", f"subtitles={sub_name}:original_size=1080x1920:force_style='{style}'", 
+        "-vf", f"subtitles={sub_name}:force_style='{style}'", 
         "-c:a", "copy", 
         out_name
     ]
