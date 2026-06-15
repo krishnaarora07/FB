@@ -73,4 +73,5 @@ jobs:
           git add topic_history.json
           git add -f token.json
           git diff --staged --quiet || git commit -m "chore: update topic history and youtube token"
+          git pull --rebase origin main
           git push
