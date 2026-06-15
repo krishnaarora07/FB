@@ -99,9 +99,10 @@ class TopicPackage:
 
 
 @dataclass(frozen=True)
-class YouTubeClip:
-    video_id: str
+class BrollAsset:
+    id: str
     url: str
+    source: str
 
 
 def write_json(path: Path, data: Any) -> None:

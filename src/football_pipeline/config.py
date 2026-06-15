@@ -32,6 +32,7 @@ class Settings:
     youtube_api_key: str | None
     gemini_api_key: str | None
     gemini_model: str
+    pexels_api_key: str | None
     youtube_client_secrets_file: Path
     youtube_token_file: Path
     youtube_upload_privacy_status: str
@@ -52,6 +53,7 @@ class Settings:
             youtube_api_key=os.getenv("YOUTUBE_API_KEY"),
             gemini_api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"),
             gemini_model=os.getenv("GEMINI_MODEL", "gemini-3.5-flash"),
+            pexels_api_key=os.getenv("PEXELS_API_KEY"),
             youtube_client_secrets_file=Path(os.getenv("YOUTUBE_CLIENT_SECRETS_FILE", "client_secret.json")),
             youtube_token_file=Path(os.getenv("YOUTUBE_TOKEN_FILE", "token.json")),
             youtube_upload_privacy_status=os.getenv("YOUTUBE_UPLOAD_PRIVACY_STATUS", "private"),

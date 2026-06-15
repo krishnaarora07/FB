@@ -103,7 +103,7 @@ def run_command(args: argparse.Namespace, settings: Settings) -> int:
         _print_path("Run directory", run_dir)
         return 0
 
-    print("Fetching YouTube source video metadata for B-roll...")
+    print("Fetching B-roll assets (detecting environment)...")
     broll = pipeline.fetch_broll(topic)
     write_json(run_dir / "broll.json", broll)
 
