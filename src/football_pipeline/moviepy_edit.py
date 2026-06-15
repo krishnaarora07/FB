@@ -13,6 +13,59 @@ from moviepy.editor import (
 from .models import TopicPackage
 
 
+def _vtt_to_ass(vtt_path: Path, ass_path: Path) -> None:
+    lines = vtt_path.read_text(encoding="utf-8").splitlines()
+    
+    ass_header = """[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,85,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,3,0,0,2,10,10,250,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+    ass_events = []
+    
+    def convert_time(vtt_time: str) -> str:
+        vtt_time = vtt_time.strip()
+        parts = vtt_time.split(":")
+        if len(parts) == 3:
+            h, m, s = parts
+        else:
+            h = "00"
+            m, s = parts
+        s_parts = s.split(".")
+        sec = s_parts[0]
+        ms = s_parts[1][:2] if len(s_parts) > 1 else "00"
+        return f"{int(h)}:{m}:{sec}.{ms}"
+
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if "-->" in line:
+            times = line.split("-->")
+            start = convert_time(times[0])
+            end = convert_time(times[1])
+            
+            i += 1
+            text_lines = []
+            while i < len(lines) and lines[i].strip():
+                text_lines.append(lines[i].strip())
+                i += 1
+            text = "\\N".join(text_lines)
+            
+            ass_events.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}")
+        else:
+            i += 1
+            
+    ass_path.write_text(ass_header + "\n".join(ass_events), encoding="utf-8")
+
+
 def build_moviepy_edit(
     topic: TopicPackage,
     broll_paths: list[Path],
@@ -106,23 +159,23 @@ def build_moviepy_edit(
     final_video.close()
     
     # 4. Burn Subtitles using FFmpeg
-    print("  Burning captions via FFmpeg...")
+    print("  Burning captions via FFmpeg using hardcoded ASS format...")
     import subprocess
     from imageio_ffmpeg import get_ffmpeg_exe
     ffmpeg_exe = get_ffmpeg_exe()
     
-    # Use relative paths in FFmpeg filter to avoid Windows escaping nightmares
-    # We execute FFmpeg directly inside the run_dir
     run_dir = output_path.parent
-    sub_name = subtitles_path.name
+    ass_path = subtitles_path.with_suffix(".ass")
+    _vtt_to_ass(subtitles_path, ass_path)
+    
     in_name = temp_output.name
     out_name = output_path.name
+    ass_name = ass_path.name
     
-    style = "Fontsize=85,PrimaryColour=&H00FFFFFF&,BackColour=&H80000000&,BorderStyle=3,Outline=0,Shadow=0,Alignment=2,MarginV=250"
     command = [
         ffmpeg_exe, "-y", 
         "-i", in_name, 
-        "-vf", f"subtitles={sub_name}:original_size=1080x1920:force_style='{style}'", 
+        "-vf", f"ass={ass_name}", 
         "-c:a", "copy", 
         out_name
     ]
