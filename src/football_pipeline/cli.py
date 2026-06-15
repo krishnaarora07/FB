@@ -117,6 +117,8 @@ def run_command(args: argparse.Namespace, settings: Settings) -> int:
 
     print("Downloading B-roll assets...")
     broll_paths = pipeline.download_broll(broll, run_dir)
+    if not broll_paths:
+        raise RuntimeError("Failed to download any B-roll assets due to network timeouts. Please wait a moment and try again.")
 
     print("Rendering video locally with MoviePy...")
     final_path = pipeline.render_video(topic, broll_paths, voiceover_path, run_dir)
