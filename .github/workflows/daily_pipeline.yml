@@ -49,7 +49,7 @@ jobs:
           YOUTUBE_UPLOAD_CATEGORY_ID=17
           FIFA_CHANNEL_HANDLE=@FIFA
           OUTPUT_DIR=runs
-          SCRIPT_SECONDS=60
+          SCRIPT_SECONDS=45
           MAX_SIGNALS_FOR_GEMINI=35
           EOF
 
