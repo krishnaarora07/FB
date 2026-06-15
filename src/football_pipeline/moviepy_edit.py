@@ -17,9 +17,10 @@ def build_moviepy_edit(
     topic: TopicPackage,
     broll_paths: list[Path],
     voiceover_path: Path,
+    subtitles_path: Path,
     output_path: Path,
 ) -> Path:
-    """Renders the video locally using MoviePy.
+    """Renders the video locally using MoviePy, then burns subtitles using FFmpeg.
     
     Returns the output_path.
     """
@@ -76,31 +77,11 @@ def build_moviepy_edit(
     final_video = final_video.set_duration(total_seconds)
     final_video = final_video.set_audio(audio)
 
-    # 3. Add Title Hook
-    hook = topic.topic_title[:90]
-    
-    # In MoviePy, TextClip requires ImageMagick
-    try:
-        txt_clip = TextClip(
-            hook,
-            fontsize=70,
-            color='white',
-            bg_color='black',
-            font='Arial-Bold',
-            method='caption',
-            size=(900, None),
-        )
-        txt_clip = txt_clip.set_position('center').set_duration(min(5, total_seconds))
-        txt_clip = txt_clip.crossfadein(0.5).crossfadeout(0.5)
-        
-        final_video = CompositeVideoClip([final_video, txt_clip])
-    except Exception as e:
-        print(f"  Warning: Failed to generate TextClip (ImageMagick might be missing): {e}")
-
-    # 4. Export
-    print(f"  Rendering video to {output_path}...")
+    # 3. Export raw video without captions
+    temp_output = output_path.with_name(output_path.stem + "_raw.mp4")
+    print(f"  Rendering raw video to {temp_output}...")
     final_video.write_videofile(
-        str(output_path),
+        str(temp_output),
         fps=30,
         codec="libx264",
         audio_codec="aac",
@@ -113,5 +94,36 @@ def build_moviepy_edit(
     for c in video_clips:
         c.close()
     final_video.close()
+    
+    # 4. Burn Subtitles using FFmpeg
+    print("  Burning captions via FFmpeg...")
+    import subprocess
+    from imageio_ffmpeg import get_ffmpeg_exe
+    ffmpeg_exe = get_ffmpeg_exe()
+    
+    # Use relative paths in FFmpeg filter to avoid Windows escaping nightmares
+    # We execute FFmpeg directly inside the run_dir
+    run_dir = output_path.parent
+    sub_name = subtitles_path.name
+    in_name = temp_output.name
+    out_name = output_path.name
+    
+    style = "Fontsize=28,PrimaryColour=&H00FFFF&,OutlineColour=&H80000000&,BorderStyle=1,Outline=2,Alignment=2,MarginV=120"
+    command = [
+        ffmpeg_exe, "-y", 
+        "-i", in_name, 
+        "-vf", f"subtitles={sub_name}:force_style='{style}'", 
+        "-c:a", "copy", 
+        out_name
+    ]
+    
+    try:
+        subprocess.run(command, cwd=str(run_dir), check=True, capture_output=True, text=True)
+        # Cleanup the temp file if successful
+        temp_output.unlink(missing_ok=True)
+    except subprocess.CalledProcessError as e:
+        print(f"  Warning: FFmpeg subtitle burning failed: {e.stderr}")
+        # If subtitles fail, just use the raw video as final
+        temp_output.rename(output_path)
     
     return output_path

@@ -16,11 +16,15 @@ class EdgeTtsClient:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
         import sys
+        
+        subtitles_path = output_path.with_suffix('.vtt')
+        
         # We use the edge-tts CLI module to generate the audio
         command = [
             sys.executable, "-m", "edge_tts",
             "--text", text,
             "--write-media", str(output_path),
+            "--write-subtitles", str(subtitles_path),
             "--voice", self.voice,
             "--rate", "+10%" # Speed it up slightly for better retention
         ]
