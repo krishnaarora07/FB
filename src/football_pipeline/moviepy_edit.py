@@ -53,12 +53,22 @@ def build_moviepy_edit(
         else:
             clip = clip.resize(width=1080, height=1920)
 
-        # Loop short clips or truncate long ones
+        # Loop short clips or smartly extract from the middle of long ones
         if clip.duration < length:
             import moviepy.video.fx.all as vfx
             clip = clip.fx(vfx.loop, duration=length)
         else:
-            clip = clip.subclip(0, length)
+            import random
+            # Skip first 15% and last 15% of video to avoid channel intros/outros
+            buffer = clip.duration * 0.15
+            
+            # Ensure we have enough space to randomly sample
+            if clip.duration - (2 * buffer) >= length:
+                start_t = random.uniform(buffer, clip.duration - buffer - length)
+            else:
+                start_t = random.uniform(0, clip.duration - length)
+                
+            clip = clip.subclip(start_t, start_t + length)
         
         # Add fadein transition between clips
         if cursor > 0:
