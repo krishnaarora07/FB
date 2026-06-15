@@ -114,7 +114,7 @@ Pick one timely, football-specific topic that is explicitly connected to the upc
 
 Rules:
 - CRITICAL: The script MUST be strictly under 95 words. If it is longer, the video will exceed the 60-second YouTube Shorts limit and be rejected.
-- CRITICAL: When selecting `source_video_ids` for B-roll, strictly AVOID Hindi news channels, big broadcasting networks, and videos with massive watermarks. STRICTLY AVOID any clips from the official FIFA channel to prevent copyright strikes. Select only the most perfect, high-quality, and authentic clips from independent creators, sports fan channels, or raw footage that perfectly suits the narrative.
+- CRITICAL: When selecting `source_video_ids` for B-roll, strictly AVOID Hindi news channels, big broadcasting networks, and videos with massive watermarks. STRICTLY AVOID any clips from the official FIFA channel to prevent copyright strikes. Also STRICTLY AVOID "talking head" videos, podcasts, vloggers speaking to the camera, or photo slideshows. Select ONLY the most perfect, high-quality, and authentic pure football gameplay highlights, "all angles" match footage, tactical camera views, or raw player compilations from independent creators or fan channels.
 - Do not invent match results, injuries, transfers, or fixtures that are not supported by the metadata.
 - The chosen topic must connect to FIFA World Cup 2026, national teams, squads, qualifiers, fixtures, venues, stars, tactical storylines, or fan debates.
 - Avoid pure club-football topics unless the angle clearly explains why they matter for World Cup 2026.
