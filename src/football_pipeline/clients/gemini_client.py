@@ -55,10 +55,10 @@ class GeminiTopicClient:
                     model=model_name,
                     contents=prompt,
                 )
-            except genai.errors.ClientError as exc:
-                if attempt < 3 and exc.code == 429:
+            except genai.errors.APIError as exc:
+                if attempt < 3 and getattr(exc, 'code', 500) in (429, 503, 500, 502, 504):
                     import time
-                    print(f"  Gemini rate limit exceeded. Waiting 35 seconds... (Attempt {attempt}/3)")
+                    print(f"  Gemini API error ({getattr(exc, 'code', 'unknown')}). Waiting 35 seconds... (Attempt {attempt}/3)")
                     time.sleep(35)
                     continue
                 raise
