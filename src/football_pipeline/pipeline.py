@@ -43,12 +43,10 @@ class FootballPipeline:
         paths = []
         for i, asset in enumerate(broll_assets):
             output = run_dir / f"broll_{i}.mp4"
-            print(f"  Downloading 15-second clip of YouTube video {asset.video_id} using yt-dlp...")
+            print(f"  Downloading YouTube video {asset.video_id} (720p) for B-roll...")
             ydl_opts = {
-                'format': 'bestvideo[ext=mp4]/bestvideo',
+                'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best',
                 'outtmpl': str(output),
-                'download_ranges': yt_dlp.utils.download_range_func(None, [(0, 15)]),
-                'force_keyframes_at_cuts': True,
                 'quiet': True,
                 'no_warnings': True,
             }
