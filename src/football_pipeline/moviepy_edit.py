@@ -52,8 +52,12 @@ def build_moviepy_edit(
         else:
             clip = clip.resize(width=1080, height=1920)
 
-        # Truncate duration to what we need
-        clip = clip.subclip(0, min(clip.duration, length))
+        # Loop short clips or truncate long ones
+        if clip.duration < length:
+            import moviepy.video.fx.all as vfx
+            clip = clip.fx(vfx.loop, duration=length)
+        else:
+            clip = clip.subclip(0, length)
         
         # Add fadein transition between clips
         if cursor > 0:
