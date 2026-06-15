@@ -15,9 +15,10 @@ class EdgeTtsClient:
     def create_voiceover(self, text: str, output_path: Path) -> Path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
+        import sys
         # We use the edge-tts CLI module to generate the audio
         command = [
-            "python", "-m", "edge_tts",
+            sys.executable, "-m", "edge_tts",
             "--text", text,
             "--write-media", str(output_path),
             "--voice", self.voice,
