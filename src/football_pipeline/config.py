@@ -56,7 +56,7 @@ class Settings:
             pexels_api_key=os.getenv("PEXELS_API_KEY"),
             youtube_client_secrets_file=Path(os.getenv("YOUTUBE_CLIENT_SECRETS_FILE", "client_secret.json")),
             youtube_token_file=Path(os.getenv("YOUTUBE_TOKEN_FILE", "token.json")),
-            youtube_upload_privacy_status=os.getenv("YOUTUBE_UPLOAD_PRIVACY_STATUS", "private"),
+            youtube_upload_privacy_status=os.getenv("YOUTUBE_UPLOAD_PRIVACY_STATUS", "public"),
             youtube_upload_category_id=os.getenv("YOUTUBE_UPLOAD_CATEGORY_ID", "17"),
             fifa_channel_handle=os.getenv("FIFA_CHANNEL_HANDLE", "@FIFA"),
             trend_regions=_csv("YOUTUBE_TREND_REGIONS", "US,GB,IN"),
