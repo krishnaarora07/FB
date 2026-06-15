@@ -114,6 +114,7 @@ Pick one timely, football-specific topic that is explicitly connected to the upc
 
 Rules:
 - CRITICAL: The script MUST be strictly under 95 words. If it is longer, the video will exceed the 60-second YouTube Shorts limit and be rejected.
+- CRITICAL: When selecting `source_video_ids` for B-roll, strictly AVOID news channels (e.g., Sky Sports, BBC, ESPN) and major broadcasting organizations. Select only the most perfect, high-quality, and authentic clips from independent creators, fan channels, or raw footage that suits the narrative.
 - Do not invent match results, injuries, transfers, or fixtures that are not supported by the metadata.
 - The chosen topic must connect to FIFA World Cup 2026, national teams, squads, qualifiers, fixtures, venues, stars, tactical storylines, or fan debates.
 - Avoid pure club-football topics unless the angle clearly explains why they matter for World Cup 2026.
@@ -130,7 +131,7 @@ Return this exact JSON shape:
   "youtube_title": "upload title under 95 chars",
   "youtube_description": "2-4 sentence upload description with source context and Pexels credit reminder",
   "hashtags": ["#FIFAWorldCup", "#Football"],
-  "source_video_ids": ["MUST include exactly 4 or 5 different youtube video ids from the signals to ensure we have diverse B-roll"]
+  "source_video_ids": ["MUST include exactly 4 or 5 different youtube video ids from the signals. AVOID major news/broadcaster channels. Use only perfect, diverse B-roll clips."]
 }}
 
 Trend signals:
