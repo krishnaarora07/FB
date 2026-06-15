@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "football-trend-pipeline"
 version = "0.1.0"
-description = "AI-assisted football trend video pipeline using YouTube, Gemini, Pexels, MoviePy, and YouTube upload."
+description = "AI-assisted football trend video pipeline using YouTube, Gemini, yt-dlp, MoviePy, and YouTube upload."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -16,6 +16,7 @@ dependencies = [
     "edge-tts>=6.1.12",
     "moviepy<2.0.0",
     "Pillow<10.0.0",
+    "yt-dlp>=2024.0.0",
 ]
 
 [project.scripts]

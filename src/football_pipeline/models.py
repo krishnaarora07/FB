@@ -99,15 +99,9 @@ class TopicPackage:
 
 
 @dataclass(frozen=True)
-class BrollAsset:
-    keyword: str
+class YouTubeClip:
+    video_id: str
     url: str
-    duration: float
-    width: int
-    height: int
-    pexels_id: int
-    pexels_url: str
-    credit: str
 
 
 def write_json(path: Path, data: Any) -> None:

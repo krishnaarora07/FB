@@ -1,0 +1,113 @@
+Metadata-Version: 2.4
+Name: football-trend-pipeline
+Version: 0.1.0
+Summary: AI-assisted football trend video pipeline using YouTube, Gemini, yt-dlp, MoviePy, and YouTube upload.
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: google-api-python-client>=2.0.0
+Requires-Dist: google-auth-oauthlib>=1.0.0
+Requires-Dist: google-genai>=1.0.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: edge-tts>=6.1.12
+Requires-Dist: moviepy<2.0.0
+Requires-Dist: Pillow<10.0.0
+Requires-Dist: yt-dlp>=2024.0.0
+
+# Football Trend Video Pipeline
+
+This repo is a fully automated pipeline for making short, trend-reactive football videos:
+
+1. Collects YouTube sports/trending metadata plus recent uploads from the official FIFA handle.
+2. Uses Gemini Flash to choose a World Cup-related angle and write a quirky voiceover script.
+3. Uses Microsoft Edge Neural TTS to generate highly realistic, natural-sounding voiceovers.
+4. Finds portrait B-roll from Pexels.
+5. Renders the video locally with MoviePy (no cloud API needed).
+6. Optionally uploads the rendered video to YouTube.
+
+The pipeline uses YouTube videos as discovery signals only. It does not download or reuse YouTube footage in the final edit; the rendered video is assembled from generated narration and Pexels footage.
+
+## Setup
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e .
+Copy-Item .env.example .env
+```
+
+Fill in `.env` with API keys.
+
+## Quick Dry Run
+
+Dry run collects YouTube signals and asks Gemini for a topic/script, then stops before Pexels, rendering, or upload:
+
+```powershell
+football-pipeline run --dry-run
+```
+
+Outputs are written under `runs/<timestamp>/`.
+
+## Build Assets Without Rendering
+
+This collects signals, writes a script, fetches B-roll metadata, and generates a local Edge TTS MP3. It does not render the video:
+
+```powershell
+football-pipeline run
+```
+
+## Render Locally With MoviePy
+
+MoviePy renders the video locally using ffmpeg. No cloud API keys needed:
+
+```powershell
+football-pipeline run --render
+```
+
+## Upload To YouTube
+
+The YouTube upload step uses OAuth, so you need a Google Cloud OAuth client JSON at `YOUTUBE_CLIENT_SECRETS_FILE`.
+
+```powershell
+football-pipeline run --render --upload
+```
+
+Videos upload as private by default. Change `YOUTUBE_UPLOAD_PRIVACY_STATUS` when you are ready.
+
+## Useful Commands
+
+Collect only:
+
+```powershell
+football-pipeline collect --out runs/manual/signals.json
+```
+
+Create topic/script from saved signals:
+
+```powershell
+football-pipeline ideate --signals runs/manual/signals.json --out runs/manual/topic.json
+```
+
+Fetch B-roll:
+
+```powershell
+football-pipeline broll --topic runs/manual/topic.json --out runs/manual/broll.json
+```
+
+Generate voiceover:
+
+```powershell
+football-pipeline voiceover --topic runs/manual/topic.json --out runs/manual/voiceover.mp3
+```
+
+Render from prepared files:
+
+```powershell
+football-pipeline render --topic runs/manual/topic.json --broll runs/manual/broll.json --voiceover runs/manual/voiceover.mp3 --out runs/manual
+```
+
+## Notes
+
+- Keep the upload privacy as `private` while testing.
+- Review every script before publishing. Trend automation can overstate facts if source metadata is thin.
+- Check Pexels attribution and license requirements for your channel workflow.
+- YouTube Data API quotas vary by endpoint; collection is intentionally metadata-first to keep cost and rights risk low.

@@ -5,11 +5,11 @@ from pathlib import Path
 
 from .clients.edge_tts_client import EdgeTtsClient
 from .clients.gemini_client import GeminiTopicClient
-from .clients.pexels_client import PexelsClient
+
 from .clients.youtube_discovery import YouTubeDiscoveryClient
 from .config import Settings
 from .moviepy_edit import build_moviepy_edit
-from .models import BrollAsset, TopicPackage, VideoSignal, read_json, write_json
+from .models import TopicPackage, VideoSignal, YouTubeClip, read_json, write_json
 from .youtube_upload import YouTubeUploader
 
 
@@ -28,26 +28,38 @@ class FootballPipeline:
     def ideate(self, videos: list[VideoSignal]) -> TopicPackage:
         return GeminiTopicClient(self.settings).choose_topic(videos)
 
-    def fetch_broll(self, topic: TopicPackage) -> list[BrollAsset]:
-        queries = topic.broll_queries or ["portrait soccer stadium", "football fans cheering", "soccer ball close up"]
-        return PexelsClient(self.settings).search_broll(queries)
+    def fetch_broll(self, topic: TopicPackage) -> list[YouTubeClip]:
+        # Instead of searching Pexels, we just use the source videos the AI selected.
+        return [
+            YouTubeClip(video_id=vid, url=f"https://www.youtube.com/watch?v={vid}")
+            for vid in topic.source_video_ids
+        ]
 
     def generate_voiceover(self, topic: TopicPackage, run_dir: Path) -> Path:
         return EdgeTtsClient(self.settings).create_voiceover(topic.script, run_dir / "voiceover.mp3")
 
-    def download_broll(self, broll_assets: list[BrollAsset], run_dir: Path) -> list[Path]:
-        import urllib.request
+    def download_broll(self, broll_assets: list[YouTubeClip], run_dir: Path) -> list[Path]:
+        import yt_dlp
         paths = []
         for i, asset in enumerate(broll_assets):
             output = run_dir / f"broll_{i}.mp4"
-            print(f"  Downloading B-roll {i} from Pexels...")
-            req = urllib.request.Request(
-                asset.url,
-                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-            )
-            with urllib.request.urlopen(req) as response, open(output, 'wb') as out_file:
-                out_file.write(response.read())
-            paths.append(output)
+            print(f"  Downloading 15-second clip of YouTube video {asset.video_id} using yt-dlp...")
+            ydl_opts = {
+                'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best',
+                'outtmpl': str(output),
+                'download_ranges': yt_dlp.utils.download_range_func(None, [(0, 15)]),
+                'force_keyframes_at_cuts': True,
+                'quiet': True,
+                'no_warnings': True,
+            }
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([asset.url])
+                if output.exists():
+                    paths.append(output)
+            except Exception as e:
+                print(f"  Warning: Failed to download video {asset.video_id}: {e}")
+                
         return paths
 
     def render_video(self, topic: TopicPackage, broll_paths: list[Path], voiceover_path: Path, run_dir: Path) -> Path:
@@ -62,6 +74,6 @@ def load_topic(path: Path) -> TopicPackage:
     return TopicPackage.from_dict(read_json(path))
 
 
-def load_broll(path: Path) -> list[BrollAsset]:
-    return [BrollAsset(**item) for item in read_json(path)]
+def load_broll(path: Path) -> list[YouTubeClip]:
+    return [YouTubeClip(**item) for item in read_json(path)]
 

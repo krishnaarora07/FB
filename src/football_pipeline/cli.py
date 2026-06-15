@@ -47,7 +47,7 @@ def broll_command(args: argparse.Namespace, settings: Settings) -> int:
     topic = load_topic(Path(args.topic))
     broll = pipeline.fetch_broll(topic)
     write_json(Path(args.out), broll)
-    print(f"Found {len(broll)} Pexels B-roll assets.")
+    print(f"Found {len(broll)} YouTube B-roll clips to download.")
     _print_path("B-roll", Path(args.out))
     return 0
 
@@ -103,7 +103,7 @@ def run_command(args: argparse.Namespace, settings: Settings) -> int:
         _print_path("Run directory", run_dir)
         return 0
 
-    print("Fetching Pexels B-roll...")
+    print("Fetching YouTube source video metadata for B-roll...")
     broll = pipeline.fetch_broll(topic)
     write_json(run_dir / "broll.json", broll)
 
