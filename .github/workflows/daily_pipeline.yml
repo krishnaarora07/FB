@@ -54,9 +54,14 @@ jobs:
           EOF
 
       - name: Create YouTube secrets from GitHub Secrets
+        env:
+          COOKIES: ${{ secrets.YOUTUBE_COOKIES_TXT }}
         run: |
           echo '${{ secrets.YOUTUBE_CLIENT_SECRETS_JSON }}' > client_secret.json
           echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > token.json
+          if [ -n "$COOKIES" ]; then
+            echo "$COOKIES" > cookies.txt
+          fi
 
       - name: Run pipeline
         run: football-pipeline run --render --upload

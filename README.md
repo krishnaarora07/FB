@@ -90,9 +90,22 @@ Render from prepared files:
 football-pipeline render --topic runs/manual/topic.json --broll runs/manual/broll.json --voiceover runs/manual/voiceover.mp3 --out runs/manual
 ```
 
+## GitHub Actions Automation
+
+To run automatically:
+1. **GitHub Secrets Required**:
+   - `YOUTUBE_CLIENT_SECRETS_JSON` (Your GCP OAuth client secret JSON)
+   - `YOUTUBE_TOKEN_JSON` (Generated locally during first run)
+   - `GEMINI_API_KEY`
+   - `YOUTUBE_COOKIES_TXT` (Required for yt-dlp)
+     - YouTube actively blocks automated downloads. You must pass your browser cookies to bypass bot detection.
+     - Install a browser extension like [Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/ccpbcjlkhoepjndkdhpaemkknnagnfoi).
+     - Go to YouTube.com and sign in.
+     - Click the extension and export the cookies as a text file.
+     - Copy the entire contents of that text file and save it as a GitHub Secret named `YOUTUBE_COOKIES_TXT`.
+
 ## Notes
 
 - Keep the upload privacy as `private` while testing.
 - Review every script before publishing. Trend automation can overstate facts if source metadata is thin.
-- Check Pexels attribution and license requirements for your channel workflow.
 - YouTube Data API quotas vary by endpoint; collection is intentionally metadata-first to keep cost and rights risk low.

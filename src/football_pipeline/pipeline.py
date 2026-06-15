@@ -52,6 +52,9 @@ class FootballPipeline:
                 'quiet': True,
                 'no_warnings': True,
             }
+            if Path("cookies.txt").exists():
+                ydl_opts['cookiefile'] = 'cookies.txt'
+                
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([asset.url])
