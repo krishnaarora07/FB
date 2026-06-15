@@ -132,32 +132,6 @@ SCRIPT — Think like the best football narrator on YouTube
 - NEVER invent facts, stats, or results not supported by the metadata.
 
 ═══════════════════════════════════════════
-B-ROLL SELECTION — Think like a top video editor
-═══════════════════════════════════════════
-You must select exactly 4-5 YouTube video IDs for B-roll footage. These will be downloaded and cut. Think of yourself as the lead editor choosing the actual raw footage for each scene. Find clips that are visually explosive and perfectly match the story.
-
-MANDATORY SCORING — only pick videos that score HIGH on ALL of these:
-- VISUAL IMPACT: Is it cinematic? Dynamic camera work? Slow-mo? Close-up player emotion?
-- RELEVANCE: Does it directly show what the script talks about? (players, stadiums, matches, goals)
-- AUTHENTICITY: Is it raw match footage, fan cam, or player compilation? Not a talking head.
-- DIVERSITY: Pick clips that show DIFFERENT scenes (stadium crowd, goal moment, player skill, fan reaction)
-
-HARD BANS — automatically disqualify any video matching these:
-- Official FIFA YouTube channel (copyright strike guaranteed)
-- Any Hindi news channel (watermarks everywhere)
-- Talking heads, podcasts, vlogging-to-camera, or panel shows
-- Photo slideshows or static image compilations
-- Videos with massive broadcaster watermarks (Sky Sports, beIN Sports, DAZN, ESPN, etc.)
-- Any video from a major sports broadcaster or rights holder
-
-IDEAL B-ROLL SOURCES:
-- Independent football fan channels uploading raw match footage
-- Player skills/compilation channels without heavy watermarks
-- Amateur fan-cam stadium recordings
-- Viral football moments reuploaded by fan accounts
-- Tactical breakdown channels with clean footage
-
-═══════════════════════════════════════════
 OUTPUT FORMAT — JSON only, zero markdown
 ═══════════════════════════════════════════
 Return this exact JSON shape with NO extra text before or after:
@@ -168,12 +142,11 @@ Return this exact JSON shape with NO extra text before or after:
   "broll_queries": ["portrait football stadium crowd", "soccer player goal celebration close up", "world cup fan reaction", "football skills dribble"],
   "youtube_title": "viral upload title under 95 chars with an emoji that creates FOMO",
   "youtube_description": "2-3 explosive sentences that hook readers, explain the topic, and end with a question to drive comments",
-  "hashtags": ["#FIFAWorldCup2026", "#Football", "#WorldCup", "#Shorts"],
-  "source_video_ids": ["exactly 4 or 5 youtube video IDs from the trend signals below that pass ALL B-roll scoring criteria — pure gameplay, player footage, or fan-cam ONLY. NO news channels, NO FIFA official, NO talking heads."]
+  "hashtags": ["#FIFAWorldCup2026", "#Football", "#WorldCup", "#Shorts"]
 }}
 
 ═══════════════════════════════════════════
-TREND SIGNALS (YouTube metadata — use as topic inspiration, pick best IDs for B-roll)
+TREND SIGNALS (YouTube metadata — use as topic inspiration)
 ═══════════════════════════════════════════
 {json.dumps(payload, ensure_ascii=False, indent=2)}
 """.strip()

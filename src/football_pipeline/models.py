@@ -82,7 +82,6 @@ class TopicPackage:
     youtube_title: str
     youtube_description: str
     hashtags: list[str]
-    source_video_ids: list[str]
 
     @classmethod
     def from_dict(cls, data: dict) -> "TopicPackage":
@@ -94,7 +93,6 @@ class TopicPackage:
             youtube_title=str(data.get("youtube_title") or data.get("topic_title") or "Football trend update"),
             youtube_description=str(data.get("youtube_description") or ""),
             hashtags=[str(item) for item in data.get("hashtags", [])][:12],
-            source_video_ids=[str(item) for item in data.get("source_video_ids", [])][:20],
         )
 
 

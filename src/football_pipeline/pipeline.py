@@ -37,42 +37,21 @@ class FootballPipeline:
         return EdgeTtsClient(self.settings).create_voiceover(topic.script, run_dir / "voiceover.mp3")
 
     def download_broll(self, broll_assets: list[BrollAsset], run_dir: Path) -> list[Path]:
-        import yt_dlp
         import requests
         paths = []
         for i, asset in enumerate(broll_assets):
             output = run_dir / f"broll_{i}.mp4"
-            if asset.source == "youtube":
-                print(f"  Downloading YouTube video {asset.id} (720p) for B-roll...")
-                ydl_opts = {
-                    'format': 'bestvideo[height<=720]/bestvideo',
-                    'outtmpl': str(output),
-                    'quiet': True,
-                    'no_warnings': True,
-                }
-                if Path("cookies.txt").exists():
-                    ydl_opts['cookiefile'] = 'cookies.txt'
-                    
-                try:
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        ydl.download([asset.url])
-                    if output.exists():
-                        paths.append(output)
-                except Exception as e:
-                    print(f"  Warning: Failed to download video {asset.id}: {e}")
-            else:
-                # Pexels download
-                print(f"  Downloading Pexels B-roll {asset.id}...")
-                try:
-                    resp = requests.get(asset.url, stream=True, timeout=15)
-                    resp.raise_for_status()
-                    with open(output, "wb") as f:
-                        for chunk in resp.iter_content(chunk_size=8192):
-                            f.write(chunk)
-                    paths.append(output)
-                except Exception as e:
-                    print(f"  Warning: Failed to download Pexels video {asset.id}: {e}")
-                    
+            print(f"  Downloading Pexels B-roll {asset.id}...")
+            try:
+                resp = requests.get(asset.url, stream=True, timeout=15)
+                resp.raise_for_status()
+                with open(output, "wb") as f:
+                    for chunk in resp.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                paths.append(output)
+            except Exception as e:
+                print(f"  Warning: Failed to download Pexels video {asset.id}: {e}")
+                
         return paths
 
     def render_video(self, topic: TopicPackage, broll_paths: list[Path], voiceover_path: Path, run_dir: Path) -> Path:
