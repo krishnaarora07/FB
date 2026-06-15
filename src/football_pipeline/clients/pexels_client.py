@@ -20,26 +20,33 @@ class PexelsClient:
             # Clean query to avoid confusing Pexels API
             clean_query = query.lower().replace("portrait", "").replace("vertical", "").strip()
             
-            # Re-added orientation=portrait as requested
+            # Step 1: Try exact query + portrait
             url = f"https://api.pexels.com/videos/search?query={urllib.parse.quote(clean_query)}&orientation=portrait&per_page=3"
             try:
                 resp = requests.get(url, headers=headers, timeout=10)
                 resp.raise_for_status()
-                data = resp.json()
-                videos = data.get("videos", [])
+                videos = resp.json().get("videos", [])
                 
-                # Fallback: If highly specific query yields 0 results, try a broader 2-word query
+                # Step 2: Fallback to 2-word simple query + portrait
                 if not videos and len(clean_query.split()) > 2:
                     simple_query = " ".join(clean_query.split()[:2])
-                    print(f"  Pexels found 0 results for '{clean_query}'. Falling back to '{simple_query}'...")
+                    print(f"  Pexels found 0 portrait results for '{clean_query}'. Trying simple '{simple_query}'...")
                     url_fallback = f"https://api.pexels.com/videos/search?query={urllib.parse.quote(simple_query)}&orientation=portrait&per_page=3"
                     resp_fallback = requests.get(url_fallback, headers=headers, timeout=10)
                     if resp_fallback.status_code == 200:
                         videos = resp_fallback.json().get("videos", [])
 
+                # Step 3: Fallback to landscape videos (MoviePy will center-crop to 9:16 automatically)
+                if not videos:
+                    print(f"  Pexels found 0 portrait results. Trying landscape videos for '{clean_query}'...")
+                    url_landscape = f"https://api.pexels.com/videos/search?query={urllib.parse.quote(clean_query)}&per_page=3"
+                    resp_landscape = requests.get(url_landscape, headers=headers, timeout=10)
+                    if resp_landscape.status_code == 200:
+                        videos = resp_landscape.json().get("videos", [])
+
                 if videos:
-                    # Pick one of the top 2 most relevant results (don't randomize top 5)
-                    video = random.choice(videos[:2])
+                    # ALWAYS pick the #1 most relevant result
+                    video = videos[0]
                     files = video.get("video_files", [])
                     
                     if files:

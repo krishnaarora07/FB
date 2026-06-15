@@ -129,7 +129,14 @@ SCRIPT — Think like the best football narrator on YouTube
 - Write like you are talking to a football-obsessed 18-year-old, not a journalist.
 - NO filler words. NO "in this video". NO "don't forget to like and subscribe".
 - Style: confident, passionate, slightly dramatic. Like a match day commentator at 90+3.
-- NEVER invent facts, stats, or results not supported by the metadata.
+═══════════════════════════════════════════
+B-ROLL SELECTION — Think like a stock video search engine
+═══════════════════════════════════════════
+You must generate 4-5 highly specific search queries to find the perfect B-roll on Pexels.
+Pexels is a visual search engine. It does NOT understand names of specific matches or obscure players.
+Instead of "Messi goal", search for "soccer player goal celebration close up".
+Instead of "Mbappe angry", search for "angry football player shouting".
+Describe the VISUAL ACTION you want to see on screen.
 
 ═══════════════════════════════════════════
 OUTPUT FORMAT — JSON only, zero markdown
@@ -139,7 +146,7 @@ Return this exact JSON shape with NO extra text before or after:
   "topic_title": "short topic name (max 8 words)",
   "angle": "one electrifying sentence explaining why this topic is unmissable right now",
   "script": "voiceover script strictly under 95 words — punchy, dynamic, emotional",
-  "broll_queries": ["portrait football stadium crowd", "soccer player goal celebration close up", "world cup fan reaction", "football skills dribble"],
+  "broll_queries": ["sad soccer fan crying", "football player scoring goal slow motion", "angry football manager shouting", "stadium crowd cheering crazy"],
   "youtube_title": "viral upload title under 95 chars with an emoji that creates FOMO",
   "youtube_description": "2-3 explosive sentences that hook readers, explain the topic, and end with a question to drive comments",
   "hashtags": ["#FIFAWorldCup2026", "#Football", "#WorldCup", "#Shorts"]
