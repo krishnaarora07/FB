@@ -45,7 +45,7 @@ class FootballPipeline:
             output = run_dir / f"broll_{i}.mp4"
             print(f"  Downloading 15-second clip of YouTube video {asset.video_id} using yt-dlp...")
             ydl_opts = {
-                'format': 'best',
+                'format': 'bestvideo[ext=mp4]/bestvideo',
                 'outtmpl': str(output),
                 'download_ranges': yt_dlp.utils.download_range_func(None, [(0, 15)]),
                 'force_keyframes_at_cuts': True,
