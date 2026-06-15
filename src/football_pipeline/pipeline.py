@@ -29,63 +29,9 @@ class FootballPipeline:
         return GeminiTopicClient(self.settings).choose_topic(videos)
 
     def fetch_broll(self, topic: TopicPackage) -> list[BrollAsset]:
-        import os
-        is_github_actions = os.getenv("GITHUB_ACTIONS") == "true"
-        
-        if is_github_actions:
-            print("  Running on GitHub Actions. Fetching Pexels B-roll to bypass YouTube bot protection...")
-            from .clients.pexels_client import PexelsClient
-            return PexelsClient(self.settings).search_broll(topic.broll_queries)
-        else:
-            print("  Running locally. Searching YouTube dynamically for B-roll...")
-            return self._search_youtube_broll(topic.broll_queries)
-
-    def _search_youtube_broll(self, queries: list[str]) -> list[BrollAsset]:
-        import yt_dlp
-        assets = []
-        
-        ydl_opts = {
-            'extract_flat': 'in_playlist',
-            'quiet': True,
-            'no_warnings': True,
-        }
-        if Path("cookies.txt").exists():
-            ydl_opts['cookiefile'] = 'cookies.txt'
-            
-        banned_terms = ["fifa", "news", "sky sports", "espn", "bein", "dazn", "podcast", "talk", "tv"]
-        
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            for query in queries:
-                print(f"  Searching YouTube for: '{query}'...")
-                try:
-                    result = ydl.extract_info(f"ytsearch5:{query}", download=False)
-                    if 'entries' in result and result['entries']:
-                        best_vid = None
-                        for entry in result['entries']:
-                            uploader = (entry.get('uploader') or "").lower()
-                            title = (entry.get('title') or "").lower()
-                            
-                            # Filter out banned channels and talking heads
-                            if any(b in uploader for b in banned_terms) or any(b in title for b in banned_terms):
-                                continue
-                            
-                            duration = entry.get('duration')
-                            if duration and duration > 600: # skip videos over 10 minutes
-                                continue
-                                
-                            best_vid = entry
-                            break
-                            
-                        # Fallback to the very first result if all were filtered
-                        if not best_vid:
-                            best_vid = result['entries'][0]
-                            
-                        vid_id = best_vid['id']
-                        assets.append(BrollAsset(id=vid_id, url=f"https://www.youtube.com/watch?v={vid_id}", source="youtube"))
-                except Exception as e:
-                    print(f"  Warning: Search failed for '{query}': {e}")
-                    
-        return assets
+        print("  Fetching high-quality B-roll from Pexels...")
+        from .clients.pexels_client import PexelsClient
+        return PexelsClient(self.settings).search_broll(topic.broll_queries)
 
     def generate_voiceover(self, topic: TopicPackage, run_dir: Path) -> Path:
         return EdgeTtsClient(self.settings).create_voiceover(topic.script, run_dir / "voiceover.mp3")
