@@ -20,9 +20,8 @@ class PexelsClient:
             # Clean query to avoid confusing Pexels API
             clean_query = query.lower().replace("portrait", "").replace("vertical", "").strip()
             
-            # Remove orientation=portrait restriction! MoviePy will perfectly center-crop 
-            # landscape videos to 9:16. This massively unlocks higher quality Pexels clips.
-            url = f"https://api.pexels.com/videos/search?query={urllib.parse.quote(clean_query)}&per_page=3"
+            # Re-added orientation=portrait as requested
+            url = f"https://api.pexels.com/videos/search?query={urllib.parse.quote(clean_query)}&orientation=portrait&per_page=3"
             try:
                 resp = requests.get(url, headers=headers, timeout=10)
                 resp.raise_for_status()
@@ -33,7 +32,7 @@ class PexelsClient:
                 if not videos and len(clean_query.split()) > 2:
                     simple_query = " ".join(clean_query.split()[:2])
                     print(f"  Pexels found 0 results for '{clean_query}'. Falling back to '{simple_query}'...")
-                    url_fallback = f"https://api.pexels.com/videos/search?query={urllib.parse.quote(simple_query)}&per_page=3"
+                    url_fallback = f"https://api.pexels.com/videos/search?query={urllib.parse.quote(simple_query)}&orientation=portrait&per_page=3"
                     resp_fallback = requests.get(url_fallback, headers=headers, timeout=10)
                     if resp_fallback.status_code == 200:
                         videos = resp_fallback.json().get("videos", [])
