@@ -130,7 +130,7 @@ Return this exact JSON shape:
   "youtube_title": "upload title under 95 chars",
   "youtube_description": "2-4 sentence upload description with source context and Pexels credit reminder",
   "hashtags": ["#FIFAWorldCup", "#Football"],
-  "source_video_ids": ["youtube ids that informed the choice"]
+  "source_video_ids": ["MUST include exactly 4 or 5 different youtube video ids from the signals to ensure we have diverse B-roll"]
 }}
 
 Trend signals:
