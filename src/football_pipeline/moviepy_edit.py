@@ -108,7 +108,7 @@ def build_moviepy_edit(
     in_name = temp_output.name
     out_name = output_path.name
     
-    style = "Fontsize=28,PrimaryColour=&H00FFFF&,OutlineColour=&H80000000&,BorderStyle=1,Outline=2,Alignment=2,MarginV=120"
+    style = "Fontsize=20,PrimaryColour=&H00FFFFFF&,BackColour=&H00000000&,BorderStyle=3,Outline=0,Shadow=0,Alignment=2,MarginV=80"
     command = [
         ffmpeg_exe, "-y", 
         "-i", in_name, 
