@@ -38,7 +38,7 @@ class GeminiTopicClient:
         client = genai.Client(api_key=api_key)
         # Use default Gemini model if not configured
         model_name = getattr(self.settings, "gemini_model", None) or "gemini-3.5-flash"
-        
+
         history_path = Path("topic_history.json")
         history = []
         if history_path.exists():
@@ -81,13 +81,13 @@ class GeminiTopicClient:
                     topic = TopicPackage.from_dict(_parse_jsonish(candidate_text))
                     self._save_history(history_path, history, topic.topic_title)
                     return topic
-            # If no text, wait and retry (exponential back‑off)
+            # If no text, wait and retry (exponential back-off)
             if attempt < 3:
                 import time
                 time.sleep(attempt * 5)
         # After three attempts, raise a clear error
         raise RuntimeError(
-            "Gemini returned an empty response after 3 attempts – check your API key, model name, and network connectivity."
+            "Gemini returned an empty response after 3 attempts - check your API key, model name, and network connectivity."
         )
 
     def _save_history(self, path: Path, history: list[str], new_topic: str) -> None:
@@ -98,7 +98,7 @@ class GeminiTopicClient:
     def _build_prompt(self, videos: list[VideoSignal], history: list[str]) -> str:
         signal_limit = self.settings.max_signals_for_gemini
         payload = [video.prompt_dict() for video in videos[:signal_limit]]
-        
+
         history_str = ""
         if history:
             history_str = "\nCRITICAL: Do NOT repeat or use any of the following previously covered topics:\n"
@@ -106,34 +106,74 @@ class GeminiTopicClient:
                 history_str += f"- {t}\n"
 
         return f"""
-You are a sharp football video producer making a short-form YouTube video for fans following the FIFA World Cup 2026 conversation.
+You are a world-class YouTube Shorts producer and editor with 10 years of experience creating viral football content. You have an obsessive eye for quality, perfect timing, and know exactly which raw footage will hook viewers in the first 0.5 seconds. Your videos regularly hit 1M+ views.
 
-Today is {date.today().isoformat()}. Use the YouTube metadata below as trend signals, not as footage to reuse.
+Today is {date.today().isoformat()}.
 {history_str}
-Pick one timely, football-specific topic that is explicitly connected to the upcoming FIFA World Cup 2026. Then write a quirky, high-retention voiceover script.
+Your task is to pick ONE trending football topic connected to FIFA World Cup 2026 and produce a complete, ready-to-publish short-form video package. Think like the best football content creator on the internet.
 
-Rules:
-- CRITICAL: The script MUST be strictly under 95 words. If it is longer, the video will exceed the 60-second YouTube Shorts limit and be rejected.
-- CRITICAL: When selecting `source_video_ids` for B-roll, strictly AVOID Hindi news channels, big broadcasting networks, and videos with massive watermarks. STRICTLY AVOID any clips from the official FIFA channel to prevent copyright strikes. Also STRICTLY AVOID "talking head" videos, podcasts, vloggers speaking to the camera, or photo slideshows. Select ONLY the most perfect, high-quality, and authentic pure football gameplay highlights, "all angles" match footage, tactical camera views, or raw player compilations from independent creators or fan channels.
-- Do not invent match results, injuries, transfers, or fixtures that are not supported by the metadata.
-- The chosen topic must connect to FIFA World Cup 2026, national teams, squads, qualifiers, fixtures, venues, stars, tactical storylines, or fan debates.
-- Avoid pure club-football topics unless the angle clearly explains why they matter for World Cup 2026.
-- Make the script punchy and playful, but not cringe.
-- Include concrete B-roll search queries for Pexels. Use visual search terms, not abstract terms.
-- Output JSON only. No markdown.
+═══════════════════════════════════════════
+TOPIC SELECTION — Think like a journalist + hype-man
+═══════════════════════════════════════════
+- Choose the single most viral, debate-worthy, or emotionally charged World Cup 2026 topic in the metadata.
+- Prioritize: surprise transfers, shocking squad snubs, underdog nations, tactical controversies, star player drama, record-breaking stats.
+- Avoid boring "preview" or "recap" topics. Make people feel something.
+- The topic MUST be directly connected to FIFA World Cup 2026 (national teams, qualifiers, squads, venues, fan culture, tactical stories).
 
-Return this exact JSON shape:
+═══════════════════════════════════════════
+SCRIPT — Think like the best football narrator on YouTube
+═══════════════════════════════════════════
+- STRICT LIMIT: Under 95 words. Non-negotiable. Every word must earn its place.
+- Hook in the first 5 words — make the viewer incapable of scrolling past.
+- Use short punchy sentences. Vary rhythm. Build tension. End with a bang.
+- Write like you are talking to a football-obsessed 18-year-old, not a journalist.
+- NO filler words. NO "in this video". NO "don't forget to like and subscribe".
+- Style: confident, passionate, slightly dramatic. Like a match day commentator at 90+3.
+- NEVER invent facts, stats, or results not supported by the metadata.
+
+═══════════════════════════════════════════
+B-ROLL SELECTION — Think like a top video editor
+═══════════════════════════════════════════
+You must select exactly 4-5 YouTube video IDs for B-roll footage. These will be downloaded and cut. Think of yourself as the lead editor choosing the actual raw footage for each scene. Find clips that are visually explosive and perfectly match the story.
+
+MANDATORY SCORING — only pick videos that score HIGH on ALL of these:
+- VISUAL IMPACT: Is it cinematic? Dynamic camera work? Slow-mo? Close-up player emotion?
+- RELEVANCE: Does it directly show what the script talks about? (players, stadiums, matches, goals)
+- AUTHENTICITY: Is it raw match footage, fan cam, or player compilation? Not a talking head.
+- DIVERSITY: Pick clips that show DIFFERENT scenes (stadium crowd, goal moment, player skill, fan reaction)
+
+HARD BANS — automatically disqualify any video matching these:
+- Official FIFA YouTube channel (copyright strike guaranteed)
+- Any Hindi news channel (watermarks everywhere)
+- Talking heads, podcasts, vlogging-to-camera, or panel shows
+- Photo slideshows or static image compilations
+- Videos with massive broadcaster watermarks (Sky Sports, beIN Sports, DAZN, ESPN, etc.)
+- Any video from a major sports broadcaster or rights holder
+
+IDEAL B-ROLL SOURCES:
+- Independent football fan channels uploading raw match footage
+- Player skills/compilation channels without heavy watermarks
+- Amateur fan-cam stadium recordings
+- Viral football moments reuploaded by fan accounts
+- Tactical breakdown channels with clean footage
+
+═══════════════════════════════════════════
+OUTPUT FORMAT — JSON only, zero markdown
+═══════════════════════════════════════════
+Return this exact JSON shape with NO extra text before or after:
 {{
-  "topic_title": "short topic name",
-  "angle": "one sentence explaining the chosen angle",
-  "script": "voiceover script",
-  "broll_queries": ["portrait football stadium", "soccer fans cheering"],
-  "youtube_title": "upload title under 95 chars",
-  "youtube_description": "2-4 sentence upload description with source context and Pexels credit reminder",
-  "hashtags": ["#FIFAWorldCup", "#Football"],
-  "source_video_ids": ["MUST include exactly 4 or 5 different youtube video ids from the signals. AVOID Hindi news, FIFA official clips, and big watermarks. Use only perfect, diverse B-roll clips."]
+  "topic_title": "short topic name (max 8 words)",
+  "angle": "one electrifying sentence explaining why this topic is unmissable right now",
+  "script": "voiceover script strictly under 95 words — punchy, dynamic, emotional",
+  "broll_queries": ["portrait football stadium crowd", "soccer player goal celebration close up", "world cup fan reaction", "football skills dribble"],
+  "youtube_title": "viral upload title under 95 chars with an emoji that creates FOMO",
+  "youtube_description": "2-3 explosive sentences that hook readers, explain the topic, and end with a question to drive comments",
+  "hashtags": ["#FIFAWorldCup2026", "#Football", "#WorldCup", "#Shorts"],
+  "source_video_ids": ["exactly 4 or 5 youtube video IDs from the trend signals below that pass ALL B-roll scoring criteria — pure gameplay, player footage, or fan-cam ONLY. NO news channels, NO FIFA official, NO talking heads."]
 }}
 
-Trend signals:
+═══════════════════════════════════════════
+TREND SIGNALS (YouTube metadata — use as topic inspiration, pick best IDs for B-roll)
+═══════════════════════════════════════════
 {json.dumps(payload, ensure_ascii=False, indent=2)}
 """.strip()
