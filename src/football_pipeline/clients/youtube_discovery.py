@@ -89,12 +89,11 @@ class YouTubeDiscoveryClient:
         videos: list[VideoSignal] = []
         for region in self.settings.trend_regions:
             videos.extend(self.most_popular_sports(region, self.settings.max_trending_per_region))
-        videos.extend(self.recent_channel_videos(self.settings.fifa_channel_handle, self.settings.max_fifa_uploads))
 
         filtered = [
             video
             for video in dedupe_videos(videos)
-            if video.source.startswith("fifa") or is_football_related(video, self.settings.football_keywords)
+            if is_football_related(video, self.settings.football_keywords)
         ]
         return rank_videos(filtered)
 
