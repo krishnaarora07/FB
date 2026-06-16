@@ -56,7 +56,7 @@ class FootballPipeline:
 
     def render_video(self, topic: TopicPackage, broll_paths: list[Path], voiceover_path: Path, run_dir: Path) -> Path:
         output_path = run_dir / "final.mp4"
-        subtitles_path = voiceover_path.with_suffix('.vtt')
+        subtitles_path = voiceover_path.with_suffix('.words.json')
         return build_moviepy_edit(topic, broll_paths, voiceover_path, subtitles_path, output_path)
 
     def upload_to_youtube(self, video_path: Path, topic: TopicPackage) -> str:

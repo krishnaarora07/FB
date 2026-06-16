@@ -13,8 +13,9 @@ from moviepy.editor import (
 from .models import TopicPackage
 
 
-def _vtt_to_ass(vtt_path: Path, ass_path: Path) -> None:
-    lines = vtt_path.read_text(encoding="utf-8").splitlines()
+def _words_to_ass(words_json_path: Path, ass_path: Path) -> None:
+    import json
+    words = json.loads(words_json_path.read_text(encoding="utf-8"))
     
     ass_header = """[Script Info]
 ScriptType: v4.00+
@@ -24,46 +25,33 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,85,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,3,0,0,2,10,10,250,1
+Style: Default,Arial,110,&H0000FFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,6,3,2,10,10,800,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     ass_events = []
     
-    def convert_time(vtt_time: str) -> str:
-        vtt_time = vtt_time.strip()
-        parts = vtt_time.split(":")
-        if len(parts) == 3:
-            h, m, s = parts
-        else:
-            h = "00"
-            m, s = parts
-        s_parts = s.split(".")
-        sec = s_parts[0]
-        ms = s_parts[1][:2] if len(s_parts) > 1 else "00"
-        return f"{int(h)}:{m}:{sec}.{ms}"
+    def convert_time(hundred_ns: int) -> str:
+        # 100-nanoseconds to ASS time format: H:MM:SS.cs
+        seconds = hundred_ns / 10_000_000.0
+        h = int(seconds // 3600)
+        m = int((seconds % 3600) // 60)
+        s = seconds % 60
+        return f"{h}:{m:02d}:{s:05.2f}"
 
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
-        if "-->" in line:
-            times = line.split("-->")
-            start = convert_time(times[0])
-            end = convert_time(times[1])
+    for word in words:
+        start = convert_time(word['offset'])
+        # Add a tiny buffer to duration to make transitions smoother
+        end = convert_time(word['offset'] + word['duration'] + 500_000)
+        
+        text = word['text'].strip()
+        if not text:
+            continue
             
-            i += 1
-            text_lines = []
-            while i < len(lines) and lines[i].strip():
-                text_lines.append(lines[i].strip())
-                i += 1
-            text = "\\N".join(text_lines)
+        ass_events.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}")
             
-            ass_events.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}")
-        else:
-            i += 1
-            
-    ass_path.write_text(ass_header + "\n".join(ass_events), encoding="utf-8")
+    ass_path.write_text(ass_header + "\\n".join(ass_events), encoding="utf-8")
 
 
 def build_moviepy_edit(
@@ -166,7 +154,7 @@ def build_moviepy_edit(
     
     run_dir = output_path.parent
     ass_path = subtitles_path.with_suffix(".ass")
-    _vtt_to_ass(subtitles_path, ass_path)
+    _words_to_ass(subtitles_path, ass_path)
     
     in_name = temp_output.name
     out_name = output_path.name
