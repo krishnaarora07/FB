@@ -30,8 +30,9 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg imagemagick
-          sudo sed -i 's/<policy domain="path" rights="none" pattern="@\*"\/>/<!-- <policy domain="path" rights="none" pattern="@*"\/> -->/g' /etc/ImageMagick-6/policy.xml || true
+          sudo apt-get install -y ffmpeg imagemagick fonts-liberation fontconfig
+          fc-cache -fv
+          sudo sed -i 's/<policy domain="path" rights="none" pattern="@\\*"\/>/<!-- <policy domain="path" rights="none" pattern="@*"\/> -->/g' /etc/ImageMagick-6/policy.xml || true
 
       - name: Install Python dependencies
         run: pip install -e .
@@ -65,13 +66,3 @@ jobs:
 
       - name: Run pipeline
         run: football-pipeline run --render --upload --cleanup
-
-      - name: Commit state changes
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add topic_history.json
-          git add -f token.json
-          git diff --staged --quiet || git commit -m "chore: update topic history and youtube token"
-          git pull --rebase --autostash origin main
-          git push
