@@ -113,11 +113,13 @@ Today is {date.today().isoformat()}.
 Your task is to pick ONE trending football topic connected to FIFA World Cup 2026 and produce a complete, ready-to-publish short-form video package. Think like the best football content creator on the internet.
 
 ═══════════════════════════════════════════
-TOPIC SELECTION — Think like a journalist + hype-man
+TOPIC SELECTION — Think like a 10M-subscriber YouTuber
 ═══════════════════════════════════════════
-- Choose the single most viral, debate-worthy, or emotionally charged World Cup 2026 topic in the metadata.
-- Prioritize: surprise transfers, shocking squad snubs, underdog nations, tactical controversies, star player drama, record-breaking stats.
-- Avoid boring "preview" or "recap" topics. Make people feel something.
+- Act as a master YouTube strategist. Your goal is MAXIMIZING VIEWS, RETENTION, and ENGAGEMENT.
+- Analyze the provided Trend Signals to find the single most viral, explosive, and trending topic connected to the FIFA World Cup 2026.
+- Ask yourself: "What are football fans arguing about in the comments right now? What thumbnail would make them click instantly?"
+- Choose topics with built-in drama: shocking squad snubs, intense rivalries, underdog miracles, controversial managerial decisions, or star player downfalls.
+- NEVER pick a generic "preview", "recap", or "history of" topic. It must feel URGENT and RELEVANT to today.
 - The topic MUST be directly connected to FIFA World Cup 2026 (national teams, qualifiers, squads, venues, fan culture, tactical stories).
 
 ═══════════════════════════════════════════
