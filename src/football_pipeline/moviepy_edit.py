@@ -4,8 +4,6 @@ from pathlib import Path
 
 from moviepy.editor import (
     AudioFileClip,
-    CompositeVideoClip,
-    TextClip,
     VideoFileClip,
     concatenate_videoclips,
 )
@@ -13,60 +11,74 @@ from moviepy.editor import (
 from .models import TopicPackage
 
 
-def _words_to_ass(words_json_path: Path, ass_path: Path) -> None:
-    import json
-    words = json.loads(words_json_path.read_text(encoding="utf-8"))
-    
-    ass_header = """[Script Info]
-ScriptType: v4.00+
-PlayResX: 1080
-PlayResY: 1920
-ScaledBorderAndShadow: yes
+def _build_ass(words: list[dict], ass_path: Path) -> None:
+    """Convert a list of word-boundary dicts into a .ass subtitle file with pop animation."""
 
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Liberation Sans,60,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3,1,2,10,10,850,1
+    # DejaVu Sans is pre-installed on ubuntu-latest with NO extra apt packages needed.
+    # This avoids font-lookup failures that plagued Liberation Sans / Arial.
+    ass_header = (
+        "[Script Info]\n"
+        "ScriptType: v4.00+\n"
+        "PlayResX: 1080\n"
+        "PlayResY: 1920\n"
+        "ScaledBorderAndShadow: yes\n"
+        "\n"
+        "[V4+ Styles]\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
+        "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, "
+        "Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+        # White bold text, black outline (size 3), small drop-shadow (1), centred low (MarginV=800)
+        "Style: Default,DejaVu Sans,58,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,"
+        "-1,0,0,0,100,100,0,0,1,3,1,2,10,10,800,1\n"
+        "\n"
+        "[Events]\n"
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+    )
 
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-"""
-    ass_events = []
-    
-    def convert_time(hundred_ns: int) -> str:
-        # 100-nanoseconds to ASS time format: H:MM:SS.cs
-        seconds = hundred_ns / 10_000_000.0
-        h = int(seconds // 3600)
-        m = int((seconds % 3600) // 60)
-        s = seconds % 60
-        return f"{h}:{m:02d}:{s:05.2f}"
+    def _ts(hundred_ns: int) -> str:
+        """100-nanosecond offset → ASS timestamp H:MM:SS.cs"""
+        s = hundred_ns / 10_000_000.0
+        h = int(s // 3600)
+        m = int((s % 3600) // 60)
+        cs = s % 60
+        return f"{h}:{m:02d}:{cs:05.2f}"
 
-    print(f"  Building ASS subtitle file with {len(words)} words...")
-    
-    for word in words:
-        start = convert_time(word['offset'])
-        # Add a small buffer to duration for smoother transitions
-        end = convert_time(word['offset'] + word['duration'] + 500_000)
-        
-        text = word['text'].strip()
+    events: list[str] = []
+    # Pop animation: {\t(0,80,\fscx130\fscy130)\t(80,150,\fscx100\fscy100)}
+    pop = "{" + r"\t(0,80,\fscx130\fscy130)" + r"\t(80,150,\fscx100\fscy100)" + "}"
+
+    for w in words:
+        text = w["text"].strip()
         if not text:
             continue
-        
-        # Pop animation using ASS inline override tags:
-        # \t(t1,t2,style) = transition from t1ms to t2ms
-        # Scale up to 130% in 80ms, snap back to 100% by 150ms
-        pop_tag = "{" + r"\t(0,80,\fscx130\fscy130)" + r"\t(80,150,\fscx100\fscy100)" + "}"
-        animated_text = pop_tag + text
-            
-        ass_events.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{animated_text}")
-    
-    if not ass_events:
-        print("  WARNING: No subtitle events generated — words list was empty!")
-    else:
-        print(f"  Writing {len(ass_events)} subtitle events to {ass_path}")
-    
-    ass_content = ass_header + "\n".join(ass_events) + "\n"
-    ass_path.write_text(ass_content, encoding="utf-8")
-    print(f"  ASS file size: {ass_path.stat().st_size} bytes")
+        start = _ts(w["offset"])
+        # Extend duration slightly so rapid words don't flash too fast
+        end = _ts(w["offset"] + w["duration"] + 600_000)
+        events.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{pop}{text}")
+
+    content = ass_header + "\n".join(events) + "\n"
+    ass_path.write_text(content, encoding="utf-8")
+    print(f"  ASS subtitle file written: {len(events)} events, {ass_path.stat().st_size} bytes")
+
+
+def _estimate_word_timings(script: str, audio_duration_s: float) -> list[dict]:
+    """
+    Fallback: if edge-tts returned no WordBoundary events, distribute words
+    evenly across the audio duration in 100-nanosecond units.
+    """
+    tokens = [t for t in script.split() if t.strip()]
+    if not tokens:
+        return []
+    ns_total = int(audio_duration_s * 10_000_000)
+    ns_per_word = ns_total // len(tokens)
+    return [
+        {
+            "text": tok,
+            "offset": i * ns_per_word,
+            "duration": int(ns_per_word * 0.80),
+        }
+        for i, tok in enumerate(tokens)
+    ]
 
 
 def build_moviepy_edit(
@@ -76,32 +88,28 @@ def build_moviepy_edit(
     subtitles_path: Path,
     output_path: Path,
 ) -> Path:
-    """Renders the video locally using MoviePy, then burns subtitles using FFmpeg.
-    
-    Returns the output_path.
-    """
+    """Renders the video locally using MoviePy, then burns subtitles using FFmpeg."""
     if not broll_paths:
         raise ValueError("At least one B-roll asset is required.")
 
-    # 1. Load Voiceover
+    # ── 1. Load Voiceover ──────────────────────────────────────────────────────
     audio = AudioFileClip(str(voiceover_path))
     total_seconds = audio.duration
-    
-    # 2. Prepare B-roll videos
+
+    # ── 2. Prepare B-roll videos ───────────────────────────────────────────────
     clip_length = max(4.0, total_seconds / len(broll_paths))
     video_clips = []
     cursor = 0.0
-    
+
     for broll_path in broll_paths:
         remaining = max(total_seconds - cursor, 0)
         length = min(clip_length, remaining) if remaining else clip_length
         if length <= 0:
             break
-            
+
         clip = VideoFileClip(str(broll_path))
-        
-        # Crop to 9:16 (1080x1920)
-        # We assume 1080x1920 target. Scale height to 1920, then crop width to 1080.
+
+        # Crop to 9:16 (1080×1920)
         clip = clip.resize(height=1920)
         if clip.w > 1080:
             x_center = clip.w / 2
@@ -109,94 +117,99 @@ def build_moviepy_edit(
         else:
             clip = clip.resize(width=1080, height=1920)
 
-        # Loop short clips or smartly extract from the middle of long ones
+        # Loop short clips; smartly extract from middle of long ones
         if clip.duration < length:
             import moviepy.video.fx.all as vfx
             clip = clip.fx(vfx.loop, duration=length)
         else:
             import random
-            # Skip first 15% and last 15% of video to avoid channel intros/outros
             buffer = clip.duration * 0.15
-            
-            # Ensure we have enough space to randomly sample
             if clip.duration - (2 * buffer) >= length:
                 start_t = random.uniform(buffer, clip.duration - buffer - length)
             else:
-                start_t = random.uniform(0, clip.duration - length)
-                
+                start_t = random.uniform(0, max(0, clip.duration - length))
             clip = clip.subclip(start_t, start_t + length)
-        
-        # Add fadein transition between clips
+
         if cursor > 0:
             clip = clip.crossfadein(0.5)
 
         video_clips.append(clip)
         cursor += clip.duration
-        
         if cursor >= total_seconds:
             break
 
-    # Concatenate all B-roll clips
     final_video = concatenate_videoclips(video_clips, method="compose")
-    
-    # Ensure final duration exactly matches audio
     final_video = final_video.set_duration(total_seconds)
     final_video = final_video.set_audio(audio)
 
-    # 3. Export raw video without captions
+    # ── 3. Export raw video (no captions yet) ─────────────────────────────────
     temp_output = output_path.with_name(output_path.stem + "_raw.mp4")
-    print(f"  Rendering raw video to {temp_output}...")
+    print(f"  Rendering raw video → {temp_output}...")
     final_video.write_videofile(
         str(temp_output),
         fps=30,
         codec="libx264",
         audio_codec="aac",
         threads=4,
-        preset="fast"
+        preset="fast",
     )
-    
-    # Close clips to free memory
     audio.close()
     for c in video_clips:
         c.close()
     final_video.close()
-    
-    # 4. Burn Subtitles using FFmpeg
-    print("  Burning captions via FFmpeg using hardcoded ASS format...")
-    import subprocess
-    import shutil
-    
-    run_dir = output_path.parent
-    ass_path = subtitles_path.with_suffix(".ass")
-    _words_to_ass(subtitles_path, ass_path)
-    
-    # Prefer system ffmpeg (guaranteed to have libass on GitHub Actions),
-    # fall back to the imageio_ffmpeg bundled binary
+
+    # ── 4. Build subtitle file ─────────────────────────────────────────────────
+    import json
+    words: list[dict] = []
+    if subtitles_path.exists():
+        try:
+            words = json.loads(subtitles_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            print(f"  WARNING: Could not read words.json: {exc}")
+
+    if words:
+        print(f"  Using {len(words)} edge-tts word-boundary events for captions.")
+    else:
+        print("  No word-boundary events found — generating estimated word timings from script.")
+        words = _estimate_word_timings(topic.script, total_seconds)
+        print(f"  Estimated {len(words)} word timings from script text.")
+
+    ass_path = output_path.with_name("captions.ass")
+    _build_ass(words, ass_path)
+
+    # ── 5. Burn subtitles via FFmpeg ───────────────────────────────────────────
+    print("  Burning subtitles into video via FFmpeg...")
+    import subprocess, shutil
+
     ffmpeg_exe = shutil.which("ffmpeg")
     if not ffmpeg_exe:
         from imageio_ffmpeg import get_ffmpeg_exe
         ffmpeg_exe = get_ffmpeg_exe()
-    
-    in_name = temp_output.name
-    out_name = output_path.name
-    ass_name = ass_path.name
-    
+    print(f"  Using FFmpeg: {ffmpeg_exe}")
+
+    # Use absolute paths to avoid any working-directory ambiguity.
+    # On Linux the ass filter path must have backslashes-in-colons escaped; keep it simple
+    # by using the absolute posix path and wrapping in single quotes via the list form.
     command = [
         ffmpeg_exe, "-y",
-        "-i", in_name,
-        "-vf", f"ass={ass_name}",
+        "-i", str(temp_output.resolve()),
+        "-vf", f"ass={ass_path.resolve()}",
         "-c:v", "libx264", "-preset", "fast",
         "-c:a", "copy",
-        out_name
+        str(output_path.resolve()),
     ]
-    
-    result = subprocess.run(command, cwd=str(run_dir), capture_output=True, text=True)
+    print(f"  FFmpeg command: {' '.join(command)}")
+
+    result = subprocess.run(command, capture_output=True, text=True)
+    print(f"  FFmpeg exit code: {result.returncode}")
     if result.returncode != 0:
-        # Log the full stderr so we can see exactly what FFmpeg complained about
-        print(f"  FFmpeg stderr:\n{result.stderr}")
-        raise RuntimeError(f"FFmpeg subtitle burning failed (exit {result.returncode}). See stderr above.")
-    
-    # Cleanup the temp file
+        print(f"  FFmpeg stderr (last 40 lines):\n" +
+              "\n".join(result.stderr.splitlines()[-40:]))
+        raise RuntimeError(
+            f"FFmpeg subtitle burning failed (exit {result.returncode}). "
+            "Check stderr above for font/libass errors."
+        )
+
     temp_output.unlink(missing_ok=True)
-    
+    print("  Subtitle burn complete.")
     return output_path
