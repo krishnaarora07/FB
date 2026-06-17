@@ -42,16 +42,19 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
     for word in words:
         start = convert_time(word['offset'])
-        # Add a tiny buffer to duration to make transitions smoother
+        # Add a small buffer to duration for smoother transitions
         end = convert_time(word['offset'] + word['duration'] + 500_000)
         
         text = word['text'].strip()
         if not text:
             continue
+        
+        # Pop animation: scale up from 80%->130% in first 80ms, snap back to 100% by 150ms
+        animated_text = r"{\t(0,80,\fscx130\fscy130)\t(80,150,\fscx100\fscy100)}" + text
             
-        ass_events.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}")
+        ass_events.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{animated_text}")
             
-    ass_path.write_text(ass_header + "\\n".join(ass_events), encoding="utf-8")
+    ass_path.write_text(ass_header + "\n".join(ass_events), encoding="utf-8")
 
 
 def build_moviepy_edit(
@@ -149,32 +152,39 @@ def build_moviepy_edit(
     # 4. Burn Subtitles using FFmpeg
     print("  Burning captions via FFmpeg using hardcoded ASS format...")
     import subprocess
-    from imageio_ffmpeg import get_ffmpeg_exe
-    ffmpeg_exe = get_ffmpeg_exe()
+    import shutil
     
     run_dir = output_path.parent
     ass_path = subtitles_path.with_suffix(".ass")
     _words_to_ass(subtitles_path, ass_path)
+    
+    # Prefer system ffmpeg (guaranteed to have libass on GitHub Actions),
+    # fall back to the imageio_ffmpeg bundled binary
+    ffmpeg_exe = shutil.which("ffmpeg")
+    if not ffmpeg_exe:
+        from imageio_ffmpeg import get_ffmpeg_exe
+        ffmpeg_exe = get_ffmpeg_exe()
     
     in_name = temp_output.name
     out_name = output_path.name
     ass_name = ass_path.name
     
     command = [
-        ffmpeg_exe, "-y", 
-        "-i", in_name, 
-        "-vf", f"ass={ass_name}", 
-        "-c:a", "copy", 
+        ffmpeg_exe, "-y",
+        "-i", in_name,
+        "-vf", f"ass={ass_name}",
+        "-c:v", "libx264", "-preset", "fast",
+        "-c:a", "copy",
         out_name
     ]
     
-    try:
-        subprocess.run(command, cwd=str(run_dir), check=True, capture_output=True, text=True)
-        # Cleanup the temp file if successful
-        temp_output.unlink(missing_ok=True)
-    except subprocess.CalledProcessError as e:
-        print(f"  Warning: FFmpeg subtitle burning failed: {e.stderr}")
-        # If subtitles fail, just use the raw video as final
-        temp_output.rename(output_path)
+    result = subprocess.run(command, cwd=str(run_dir), capture_output=True, text=True)
+    if result.returncode != 0:
+        # Log the full stderr so we can see exactly what FFmpeg complained about
+        print(f"  FFmpeg stderr:\n{result.stderr}")
+        raise RuntimeError(f"FFmpeg subtitle burning failed (exit {result.returncode}). See stderr above.")
+    
+    # Cleanup the temp file
+    temp_output.unlink(missing_ok=True)
     
     return output_path
