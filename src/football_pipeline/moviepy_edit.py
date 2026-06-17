@@ -190,10 +190,12 @@ def build_moviepy_edit(
     # Use absolute paths to avoid any working-directory ambiguity.
     # On Linux the ass filter path must have backslashes-in-colons escaped; keep it simple
     # by using the absolute posix path and wrapping in single quotes via the list form.
+    # We also specify fontsdir=/usr/share/fonts so libass explicitly knows where to look.
+    ass_path_str = str(ass_path.resolve()).replace("\\", "/") # Ensure forward slashes for filter parsing
     command = [
         ffmpeg_exe, "-y",
         "-i", str(temp_output.resolve()),
-        "-vf", f"ass={ass_path.resolve()}",
+        "-vf", f"ass='{ass_path_str}':fontsdir=/usr/share/fonts",
         "-c:v", "libx264", "-preset", "fast",
         "-c:a", "copy",
         str(output_path.resolve()),

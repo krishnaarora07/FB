@@ -30,12 +30,12 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg fonts-liberation fontconfig
+          sudo apt-get install -y ffmpeg fonts-dejavu-core fontconfig
           fc-cache -fv
           echo "=== FFmpeg version ==="
           ffmpeg -version | head -1
-          echo "=== Liberation fonts installed ==="
-          fc-list | grep -i liberation | head -5
+          echo "=== DejaVu fonts installed ==="
+          fc-list | grep -i dejavu | head -5
 
       - name: Install Python dependencies
         run: pip install -e .
