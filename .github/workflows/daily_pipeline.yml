@@ -27,6 +27,14 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Cache topic history
+        uses: actions/cache@v4
+        with:
+          path: topic_history.json
+          key: topic-history-${{ github.run_id }}
+          restore-keys: |
+            topic-history-
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
