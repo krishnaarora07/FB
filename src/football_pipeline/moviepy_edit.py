@@ -28,7 +28,7 @@ def _build_ass(words: list[dict], ass_path: Path) -> None:
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, "
         "Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
         # White bold text, black outline (size 3), small drop-shadow (1), centred low (MarginV=800)
-        "Style: Default,DejaVu Sans,58,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,"
+        "Style: Default,DejaVu Sans,68,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,"
         "-1,0,0,0,100,100,0,0,1,3,1,2,10,10,800,1\n"
         "\n"
         "[Events]\n"
