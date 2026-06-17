@@ -28,16 +28,17 @@ class EdgeTtsClient:
         async def _generate() -> list[dict]:
             communicate = edge_tts.Communicate(text, self.voice, rate='+10%')
             words: list[dict] = []
-            with open(output_path, 'wb') as f:
-                async for chunk in communicate.stream():
-                    if chunk['type'] == 'audio':
-                        f.write(chunk['data'])
-                    elif chunk['type'] == 'WordBoundary':
-                        words.append({
-                            'text': chunk['text'],
-                            'offset': chunk['offset'],
-                            'duration': chunk['duration'],
-                        })
+            audio_chunks: list[bytes] = []
+            async for chunk in communicate.stream():
+                if chunk['type'] == 'audio':
+                    audio_chunks.append(chunk['data'])
+                elif chunk['type'] == 'WordBoundary':
+                    words.append({
+                        'text': chunk['text'],
+                        'offset': chunk['offset'],
+                        'duration': chunk['duration'],
+                    })
+            output_path.write_bytes(b''.join(audio_chunks))
             return words
 
         words = asyncio.run(_generate())
