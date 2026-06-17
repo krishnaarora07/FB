@@ -44,7 +44,7 @@ jobs:
         run: |
           printf 'YOUTUBE_API_KEY=%s\n' '${{ secrets.YOUTUBE_API_KEY }}' > .env
           printf 'GEMINI_API_KEY=%s\n' '${{ secrets.GEMINI_API_KEY }}' >> .env
-          printf 'GEMINI_MODEL=gemini-2.5-flash\n' >> .env
+          printf 'GEMINI_MODEL=gemini-3.5-flash\n' >> .env
           printf 'PEXELS_API_KEY=%s\n' '${{ secrets.PEXELS_API_KEY }}' >> .env
           printf 'YOUTUBE_CLIENT_SECRETS_FILE=client_secret.json\n' >> .env
           printf 'YOUTUBE_TOKEN_FILE=token.json\n' >> .env
