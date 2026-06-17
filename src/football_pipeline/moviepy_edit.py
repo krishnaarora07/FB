@@ -40,6 +40,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         s = seconds % 60
         return f"{h}:{m:02d}:{s:05.2f}"
 
+    print(f"  Building ASS subtitle file with {len(words)} words...")
+    
     for word in words:
         start = convert_time(word['offset'])
         # Add a small buffer to duration for smoother transitions
@@ -49,12 +51,22 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         if not text:
             continue
         
-        # Pop animation: scale up from 80%->130% in first 80ms, snap back to 100% by 150ms
-        animated_text = r"{\t(0,80,\fscx130\fscy130)\t(80,150,\fscx100\fscy100)}" + text
+        # Pop animation using ASS inline override tags:
+        # \t(t1,t2,style) = transition from t1ms to t2ms
+        # Scale up to 130% in 80ms, snap back to 100% by 150ms
+        pop_tag = "{" + r"\t(0,80,\fscx130\fscy130)" + r"\t(80,150,\fscx100\fscy100)" + "}"
+        animated_text = pop_tag + text
             
         ass_events.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{animated_text}")
-            
-    ass_path.write_text(ass_header + "\n".join(ass_events), encoding="utf-8")
+    
+    if not ass_events:
+        print("  WARNING: No subtitle events generated — words list was empty!")
+    else:
+        print(f"  Writing {len(ass_events)} subtitle events to {ass_path}")
+    
+    ass_content = ass_header + "\n".join(ass_events) + "\n"
+    ass_path.write_text(ass_content, encoding="utf-8")
+    print(f"  ASS file size: {ass_path.stat().st_size} bytes")
 
 
 def build_moviepy_edit(

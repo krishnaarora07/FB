@@ -12,7 +12,7 @@ jobs:
   run-pipeline:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Needed to commit the history and tokens back
+      contents: write
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -27,40 +27,35 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Cache topic history
-        uses: actions/cache@v4
-        with:
-          path: topic_history.json
-          key: topic-history-${{ github.run_id }}
-          restore-keys: |
-            topic-history-
-
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg imagemagick fonts-liberation fontconfig
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-liberation fontconfig
           fc-cache -fv
-          sudo sed -i 's/<policy domain="path" rights="none" pattern="@\\*"\/>/<!-- <policy domain="path" rights="none" pattern="@*"\/> -->/g' /etc/ImageMagick-6/policy.xml || true
+          echo "=== FFmpeg version ==="
+          ffmpeg -version | head -1
+          echo "=== Liberation fonts installed ==="
+          fc-list | grep -i liberation | head -5
 
       - name: Install Python dependencies
         run: pip install -e .
 
       - name: Create .env from secrets
         run: |
-          cat << EOF > .env
-          YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }}
-          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL=gemini-3.5-flash
-          PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}
-          YOUTUBE_CLIENT_SECRETS_FILE=client_secret.json
-          YOUTUBE_TOKEN_FILE=token.json
-          YOUTUBE_UPLOAD_PRIVACY_STATUS=public
-          YOUTUBE_UPLOAD_CATEGORY_ID=17
-          FIFA_CHANNEL_HANDLE=@FIFA
-          OUTPUT_DIR=runs
-          SCRIPT_SECONDS=45
-          MAX_SIGNALS_FOR_GEMINI=35
-          EOF
+          printf 'YOUTUBE_API_KEY=%s\n' '${{ secrets.YOUTUBE_API_KEY }}' > .env
+          printf 'GEMINI_API_KEY=%s\n' '${{ secrets.GEMINI_API_KEY }}' >> .env
+          printf 'GEMINI_MODEL=gemini-2.5-flash\n' >> .env
+          printf 'PEXELS_API_KEY=%s\n' '${{ secrets.PEXELS_API_KEY }}' >> .env
+          printf 'YOUTUBE_CLIENT_SECRETS_FILE=client_secret.json\n' >> .env
+          printf 'YOUTUBE_TOKEN_FILE=token.json\n' >> .env
+          printf 'YOUTUBE_UPLOAD_PRIVACY_STATUS=public\n' >> .env
+          printf 'YOUTUBE_UPLOAD_CATEGORY_ID=17\n' >> .env
+          printf 'FIFA_CHANNEL_HANDLE=@FIFA\n' >> .env
+          printf 'OUTPUT_DIR=runs\n' >> .env
+          printf 'SCRIPT_SECONDS=45\n' >> .env
+          printf 'MAX_SIGNALS_FOR_GEMINI=35\n' >> .env
+          echo "=== .env written (keys only) ==="
+          cut -d= -f1 .env
 
       - name: Create YouTube secrets from GitHub Secrets
         env:
@@ -74,3 +69,17 @@ jobs:
 
       - name: Run pipeline
         run: football-pipeline run --render --upload --cleanup
+
+      - name: Save topic history to repo
+        if: always()
+        run: |
+          if [ ! -f topic_history.json ]; then
+            echo "No topic_history.json found, skipping."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add topic_history.json
+          git diff --staged --quiet && echo "No history changes to commit." && exit 0
+          git commit -m "chore: save topic history [skip ci]"
+          git push origin HEAD:main
