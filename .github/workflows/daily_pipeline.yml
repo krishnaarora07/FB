@@ -48,6 +48,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-u2net
 
+      - name: Cache HuggingFace models (Chatterbox TTS)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub
+          key: ${{ runner.os }}-huggingface-models
+          restore-keys: |
+            ${{ runner.os }}-huggingface-models
+
       - name: Create .env from secrets
         run: |
           printf 'YOUTUBE_API_KEY=%s\n' '${{ secrets.YOUTUBE_API_KEY }}' > .env

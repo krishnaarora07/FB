@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from .clients.edge_tts_client import EdgeTtsClient
+from .clients.chatterbox_tts_client import ChatterboxTtsClient
 from .clients.gemini_client import GeminiTopicClient
 
 from .clients.youtube_discovery import YouTubeDiscoveryClient
@@ -34,7 +34,7 @@ class FootballPipeline:
         return ImageSearchClient(self.settings).search_images(topic.broll_queries)
 
     def generate_voiceover(self, topic: TopicPackage, run_dir: Path) -> Path:
-        return EdgeTtsClient(self.settings).create_voiceover(topic.script, run_dir / "voiceover.mp3")
+        return ChatterboxTtsClient(self.settings).create_voiceover(topic.script, run_dir / "voiceover.wav")
 
     def download_broll(self, broll_assets: list[BrollAsset], run_dir: Path) -> list[Path]:
         import requests
