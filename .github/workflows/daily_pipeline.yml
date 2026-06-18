@@ -70,6 +70,8 @@ jobs:
           printf 'GEMINI_API_KEY=%s\n' '${{ secrets.GEMINI_API_KEY }}' >> .env
           printf 'GEMINI_MODEL=gemini-3.5-flash\n' >> .env
           printf 'PEXELS_API_KEY=%s\n' '${{ secrets.PEXELS_API_KEY }}' >> .env
+          printf 'GOOGLE_SEARCH_API_KEY=%s\n' '${{ secrets.GOOGLE_SEARCH_API_KEY }}' >> .env
+          printf 'GOOGLE_SEARCH_ENGINE_ID=%s\n' '${{ secrets.GOOGLE_SEARCH_ENGINE_ID }}' >> .env
           printf 'YOUTUBE_CLIENT_SECRETS_FILE=client_secret.json\n' >> .env
           printf 'YOUTUBE_TOKEN_FILE=token.json\n' >> .env
           printf 'YOUTUBE_UPLOAD_PRIVACY_STATUS=public\n' >> .env
