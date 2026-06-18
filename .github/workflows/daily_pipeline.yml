@@ -108,4 +108,5 @@ jobs:
           git add topic_history.json
           git diff --staged --quiet && echo "No history changes to commit." && exit 0
           git commit -m "chore: save topic history [skip ci]"
+          git pull --rebase origin main
           git push origin HEAD:main
