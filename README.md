@@ -1,111 +1,58 @@
-# Football Trend Video Pipeline
+# ⚽ Fully Autonomous Football Shorts Pipeline
 
-This repo is a fully automated pipeline for making short, trend-reactive football videos:
+A fully automated, AI-driven pipeline that generates, edits, and uploads high-quality Football YouTube Shorts every single day via GitHub Actions.
 
-1. Collects YouTube sports/trending metadata plus recent uploads from the official FIFA handle.
-2. Uses Gemini Flash to choose a World Cup-related angle and write a quirky voiceover script.
-3. Uses Microsoft Edge Neural TTS to generate highly realistic, natural-sounding voiceovers.
-4. Finds portrait B-roll from Pexels.
-5. Renders the video locally with MoviePy (no cloud API needed).
-6. Optionally uploads the rendered video to YouTube.
+## ✨ Features & Architecture
 
-The pipeline uses YouTube videos as discovery signals only. It does not download or reuse YouTube footage in the final edit; the rendered video is assembled from generated narration and Pexels footage.
+This pipeline is powered by a chain of advanced AI models working together seamlessly:
 
-## Setup
+1. **AI Scriptwriting & Topic Selection (Gemini)**
+   - Uses the `google-genai` SDK and the `gemini-2.5-flash` model.
+   - Specifically prompted to act like a 10M-subscriber YouTuber to find the most viral, trending football topics of the day.
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -e .
-Copy-Item .env.example .env
-```
+2. **Expressive Voiceover Generation (Chatterbox TTS)**
+   - Replaced legacy robotic voices with `chatterbox-tts`, a massive, locally-run PyTorch AI model developed by Resemble AI.
+   - Generates highly expressive, human-sounding narration directly on the GitHub Actions CPU.
 
-Fill in `.env` with API keys.
+3. **Intelligent Asset Sourcing**
+   - **Google Custom Search API:** Dynamically searches the web for high-resolution images of specific football players mentioned in the script.
+   - **Pexels API Fallback:** If the script calls for generic footage or Google ratelimits/fails, it automatically falls back to downloading 4K stock video/images from Pexels.
 
-## Quick Dry Run
+4. **3D Parallax Visual Engine (`rembg`)**
+   - Implements a "Ken Burns 2.0" documentary-style effect.
+   - Uses `rembg` (U2-Net) to instantly cut out the foreground subject (e.g., Lionel Messi) from the background.
+   - Applies a Gaussian blur to the background, zooming it backwards, while zooming the sharp cutout player forwards to create a powerful illusion of 3D depth.
 
-Dry run collects YouTube signals and asks Gemini for a topic/script, then stops before Pexels, rendering, or upload:
+5. **Perfect Subtitle Synchronization (Whisper AI)**
+   - Uses OpenAI's `whisper-timestamped` model as a forced-aligner.
+   - Listens to the generated Chatterbox audio and extracts the exact start and end millisecond of every spoken word.
+   - Feeds this data into `moviepy` to generate perfectly synced, "MrBeast-style" pop-in animations.
 
-```powershell
-football-pipeline run --dry-run
-```
+6. **100% Cloud Automated CI/CD**
+   - Runs on a CRON schedule inside **GitHub Actions**.
+   - Implements aggressive caching (`~/.cache/huggingface/hub` and `~/.cache/whisper`) so massive AI models are only downloaded once, keeping the pipeline completely free and bypassing bandwidth limits.
 
-Outputs are written under `runs/<timestamp>/`.
+---
 
-## Build Assets Without Rendering
+## 🚀 Setup Instructions
 
-This collects signals, writes a script, fetches B-roll metadata, and generates a local Edge TTS MP3. It does not render the video:
+Because this runs entirely on GitHub Actions, you do not need to install anything on your local computer. However, you must provide the following API keys as **Repository Secrets** (`Settings > Secrets and variables > Actions`):
 
-```powershell
-football-pipeline run
-```
+* `YOUTUBE_API_KEY` - To query YouTube trending data.
+* `GEMINI_API_KEY` - To write the script.
+* `PEXELS_API_KEY` - For the stock footage fallback.
+* `GOOGLE_SEARCH_API_KEY` - For specific image sourcing.
+* `GOOGLE_SEARCH_ENGINE_ID` - The custom search engine (set to search the entire web, Image Search ON).
+* `YOUTUBE_CLIENT_SECRETS_FILE` - (OAuth) For uploading the final video.
+* `YOUTUBE_TOKEN_FILE` - (OAuth) For uploading the final video.
 
-## Render Locally With MoviePy
+---
 
-MoviePy renders the video locally using ffmpeg. No cloud API keys needed:
+## 📅 Development Timeline & Changelog
 
-```powershell
-football-pipeline run --render
-```
-
-## Upload To YouTube
-
-The YouTube upload step uses OAuth, so you need a Google Cloud OAuth client JSON at `YOUTUBE_CLIENT_SECRETS_FILE`.
-
-```powershell
-football-pipeline run --render --upload
-```
-
-Videos upload as private by default. Change `YOUTUBE_UPLOAD_PRIVACY_STATUS` when you are ready.
-
-## Useful Commands
-
-Collect only:
-
-```powershell
-football-pipeline collect --out runs/manual/signals.json
-```
-
-Create topic/script from saved signals:
-
-```powershell
-football-pipeline ideate --signals runs/manual/signals.json --out runs/manual/topic.json
-```
-
-Fetch B-roll:
-
-```powershell
-football-pipeline broll --topic runs/manual/topic.json --out runs/manual/broll.json
-```
-
-Generate voiceover:
-
-```powershell
-football-pipeline voiceover --topic runs/manual/topic.json --out runs/manual/voiceover.mp3
-```
-
-Render from prepared files:
-
-```powershell
-football-pipeline render --topic runs/manual/topic.json --broll runs/manual/broll.json --voiceover runs/manual/voiceover.mp3 --out runs/manual
-```
-
-## GitHub Actions Automation
-
-To run automatically:
-1. **GitHub Secrets Required**:
-   - `YOUTUBE_CLIENT_SECRETS_JSON` (Your GCP OAuth client secret JSON)
-   - `YOUTUBE_TOKEN_JSON` (Generated locally during first run)
-   - `GEMINI_API_KEY`
-   - `YOUTUBE_COOKIES_TXT` (Required for yt-dlp)
-     - YouTube actively blocks automated downloads. You must pass your browser cookies to bypass bot detection.
-     - Install a browser extension like [Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/ccpbcjlkhoepjndkdhpaemkknnagnfoi).
-     - Go to YouTube.com and sign in.
-     - Click the extension and export the cookies as a text file.
-     - Copy the entire contents of that text file and save it as a GitHub Secret named `YOUTUBE_COOKIES_TXT`.
-
-## Notes
-
-- Keep the upload privacy as `private` while testing.
-- Review every script before publishing. Trend automation can overstate facts if source metadata is thin.
-- YouTube Data API quotas vary by endpoint; collection is intentionally metadata-first to keep cost and rights risk low.
+* **Initial Setup:** Built the core MoviePy pipeline using Microsoft `edge-tts` and generic stock footage.
+* **The "Real Creator" Update:** Altered the Gemini prompt to aggressively target viral topics and speak with higher energy.
+* **The 3D Parallax Update:** Replaced static stock videos with dynamic 3D scenes. Integrated `rembg` AI to slice foreground subjects from backgrounds and animate them independently.
+* **The Chatterbox Upgrade:** Ripped out the robotic `edge-tts` engine and installed the massive `chatterbox-tts` PyTorch model for ultra-realistic voice generation.
+* **The Whisper Alignment Update:** Added OpenAI's `whisper-timestamped` to act as a stopwatch, perfectly mapping word boundaries to restore the MrBeast-style pop-in subtitles that broke when Edge TTS was removed.
+* **The Google Search Migration:** Replaced the unstable DuckDuckGo scraper (which was throwing `403 Ratelimits` on GitHub Actions) with the official Google Custom Search API to guarantee high-quality player images.
