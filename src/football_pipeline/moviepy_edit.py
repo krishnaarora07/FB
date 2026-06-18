@@ -96,10 +96,57 @@ def build_moviepy_edit(
     audio = AudioFileClip(str(voiceover_path))
     total_seconds = audio.duration
 
-    # ── 2. Prepare B-roll videos ───────────────────────────────────────────────
+    # ── 2. Prepare B-roll videos (or Parallax Images) ─────────────────────────
     clip_length = max(4.0, total_seconds / len(broll_paths))
     video_clips = []
     cursor = 0.0
+
+    def _create_parallax_clip(img_path: Path, length: float):
+        import numpy as np
+        from PIL import Image, ImageFilter
+        from moviepy.editor import ImageClip, CompositeVideoClip
+        from rembg import remove
+
+        # 1. Load image and remove background
+        input_img = Image.open(img_path).convert("RGBA")
+        fg_img = remove(input_img)
+
+        # 2. Crop to 9:16 aspect ratio
+        target_ratio = 1080 / 1920.0
+        w, h = input_img.size
+        img_ratio = w / h
+        
+        if img_ratio > target_ratio:
+            new_w = int(h * target_ratio)
+            left = (w - new_w) // 2
+            bg_crop = input_img.crop((left, 0, left + new_w, h))
+            fg_crop = fg_img.crop((left, 0, left + new_w, h))
+        else:
+            new_h = int(w / target_ratio)
+            top = (h - new_h) // 2
+            bg_crop = input_img.crop((0, top, w, top + new_h))
+            fg_crop = fg_img.crop((0, top, w, top + new_h))
+            
+        bg_img = bg_crop.resize((1080, 1920), Image.Resampling.LANCZOS)
+        bg_img = bg_img.filter(ImageFilter.GaussianBlur(radius=15))
+        fg_img = fg_crop.resize((1080, 1920), Image.Resampling.LANCZOS)
+        
+        # 3. Animate with MoviePy
+        # Zoom out slowly for background
+        def resize_bg(t):
+            return 1.1 - 0.05 * (t / length)
+            
+        # Zoom in slowly for foreground
+        def resize_fg(t):
+            return 1.0 + 0.05 * (t / length)
+
+        bg_clip = ImageClip(np.array(bg_img.convert("RGB"))).set_duration(length)
+        bg_clip = bg_clip.resize(resize_bg).set_position("center")
+        
+        fg_clip = ImageClip(np.array(fg_img)).set_duration(length)
+        fg_clip = fg_clip.resize(resize_fg).set_position("center")
+        
+        return CompositeVideoClip([bg_clip, fg_clip], size=(1080, 1920)).set_duration(length)
 
     for broll_path in broll_paths:
         remaining = max(total_seconds - cursor, 0)
@@ -107,28 +154,32 @@ def build_moviepy_edit(
         if length <= 0:
             break
 
-        clip = VideoFileClip(str(broll_path))
-
-        # Crop to 9:16 (1080×1920)
-        clip = clip.resize(height=1920)
-        if clip.w > 1080:
-            x_center = clip.w / 2
-            clip = clip.crop(x1=x_center - 540, y1=0, x2=x_center + 540, y2=1920)
+        if broll_path.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]:
+            print(f"  Generating Parallax clip for {broll_path.name}...")
+            clip = _create_parallax_clip(broll_path, length)
         else:
-            clip = clip.resize(width=1080, height=1920)
+            clip = VideoFileClip(str(broll_path))
 
-        # Loop short clips; smartly extract from middle of long ones
-        if clip.duration < length:
-            import moviepy.video.fx.all as vfx
-            clip = clip.fx(vfx.loop, duration=length)
-        else:
-            import random
-            buffer = clip.duration * 0.15
-            if clip.duration - (2 * buffer) >= length:
-                start_t = random.uniform(buffer, clip.duration - buffer - length)
+            # Crop to 9:16 (1080×1920)
+            clip = clip.resize(height=1920)
+            if clip.w > 1080:
+                x_center = clip.w / 2
+                clip = clip.crop(x1=x_center - 540, y1=0, x2=x_center + 540, y2=1920)
             else:
-                start_t = random.uniform(0, max(0, clip.duration - length))
-            clip = clip.subclip(start_t, start_t + length)
+                clip = clip.resize(width=1080, height=1920)
+
+            # Loop short clips; smartly extract from middle of long ones
+            if clip.duration < length:
+                import moviepy.video.fx.all as vfx
+                clip = clip.fx(vfx.loop, duration=length)
+            else:
+                import random
+                buffer = clip.duration * 0.15
+                if clip.duration - (2 * buffer) >= length:
+                    start_t = random.uniform(buffer, clip.duration - buffer - length)
+                else:
+                    start_t = random.uniform(0, max(0, clip.duration - length))
+                clip = clip.subclip(start_t, start_t + length)
 
         if cursor > 0:
             clip = clip.crossfadein(0.5)

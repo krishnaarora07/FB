@@ -40,6 +40,14 @@ jobs:
       - name: Install Python dependencies
         run: pip install -e .
 
+      - name: Cache rembg u2net models
+        uses: actions/cache@v4
+        with:
+          path: ~/.u2net
+          key: ${{ runner.os }}-u2net
+          restore-keys: |
+            ${{ runner.os }}-u2net
+
       - name: Create .env from secrets
         run: |
           printf 'YOUTUBE_API_KEY=%s\n' '${{ secrets.YOUTUBE_API_KEY }}' > .env

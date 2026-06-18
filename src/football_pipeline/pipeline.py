@@ -29,9 +29,9 @@ class FootballPipeline:
         return GeminiTopicClient(self.settings).choose_topic(videos)
 
     def fetch_broll(self, topic: TopicPackage) -> list[BrollAsset]:
-        print("  Fetching high-quality B-roll from Pexels...")
-        from .clients.pexels_client import PexelsClient
-        return PexelsClient(self.settings).search_broll(topic.broll_queries)
+        print("  Fetching high-quality images from DuckDuckGo for Parallax...")
+        from .clients.image_search_client import ImageSearchClient
+        return ImageSearchClient(self.settings).search_images(topic.broll_queries)
 
     def generate_voiceover(self, topic: TopicPackage, run_dir: Path) -> Path:
         return EdgeTtsClient(self.settings).create_voiceover(topic.script, run_dir / "voiceover.mp3")
@@ -40,17 +40,28 @@ class FootballPipeline:
         import requests
         paths = []
         for i, asset in enumerate(broll_assets):
-            output = run_dir / f"broll_{i}.mp4"
-            print(f"  Downloading Pexels B-roll {asset.id}...")
+            # Attempt to extract original extension, default to jpg
+            ext = ".jpg"
+            if "." in asset.url.split("/")[-1]:
+                potential_ext = "." + asset.url.split("/")[-1].split(".")[1][:3]
+                if potential_ext.lower() in [".jpg", ".png", ".jpeg", ".webp"]:
+                    ext = potential_ext.lower()
+                    
+            output = run_dir / f"broll_{i}{ext}"
+            print(f"  Downloading image {asset.id}...")
             try:
-                resp = requests.get(asset.url, stream=True, timeout=15)
+                # Add User-Agent since some image hosts block default requests User-Agent
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                }
+                resp = requests.get(asset.url, stream=True, timeout=15, headers=headers)
                 resp.raise_for_status()
                 with open(output, "wb") as f:
                     for chunk in resp.iter_content(chunk_size=8192):
                         f.write(chunk)
                 paths.append(output)
             except Exception as e:
-                print(f"  Warning: Failed to download Pexels video {asset.id}: {e}")
+                print(f"  Warning: Failed to download image {asset.id}: {e}")
                 
         return paths
 
