@@ -16,9 +16,10 @@ class ChatterboxTtsClient:
         try:
             import torchaudio as ta
             from chatterbox.tts import ChatterboxTTS
+            import whisper_timestamped as whisper
         except ImportError as exc:
             raise RuntimeError(
-                "Chatterbox dependencies are missing. Ensure chatterbox-tts, torch, and torchaudio are installed."
+                "Dependencies missing. Ensure chatterbox-tts, torch, torchaudio, and whisper-timestamped are installed."
             ) from exc
 
         # Initialize model in CPU mode for maximum compatibility across environments (e.g. GitHub Actions)
@@ -31,12 +32,37 @@ class ChatterboxTtsClient:
         
         wav = model.generate(text)
         ta.save(str(wav_output_path), wav, model.sr)
-        
-        # Write an empty words.json. 
-        # This will instruct moviepy_edit.py to automatically fallback and mathematically 
-        # distribute subtitle timings evenly across the duration of the audio clip.
-        words_path = wav_output_path.with_suffix('.words.json')
-        words_path.write_text("[]", encoding='utf-8')
-        
         print(f"  Chatterbox generation complete. Saved to {wav_output_path.name}")
+        
+        # ---------------------------------------------------------
+        # Whisper Forced Alignment for Subtitle Sync
+        # ---------------------------------------------------------
+        print("  Running Whisper AI to map perfect word-level timestamps...")
+        
+        whisper_model = whisper.load_model("base", device="cpu")
+        audio = whisper.load_audio(str(wav_output_path))
+        
+        # Transcribe the audio we just generated to get the exact start/end times
+        result = whisper.transcribe(whisper_model, audio, language="en")
+        
+        words_data = []
+        # Convert Whisper's floating point seconds to Edge-TTS 100-nanosecond format
+        for segment in result.get("segments", []):
+            for w in segment.get("words", []):
+                start_s = w["start"]
+                end_s = w["end"]
+                
+                offset_100ns = int(start_s * 10_000_000)
+                duration_100ns = int((end_s - start_s) * 10_000_000)
+                
+                words_data.append({
+                    "text": w["text"],
+                    "offset": offset_100ns,
+                    "duration": duration_100ns
+                })
+        
+        words_path = wav_output_path.with_suffix('.words.json')
+        words_path.write_text(json.dumps(words_data, ensure_ascii=False, indent=2), encoding='utf-8')
+        print(f"  Whisper alignment complete. Mapped {len(words_data)} words.")
+        
         return wav_output_path

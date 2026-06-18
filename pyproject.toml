@@ -22,6 +22,7 @@ dependencies = [
     "requests>=2.31.0",
     "duckduckgo-search>=5.0.0",
     "rembg[cpu]>=2.0.0",
+    "whisper-timestamped",
 ]
 
 [project.scripts]

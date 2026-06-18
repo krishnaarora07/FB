@@ -56,6 +56,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-huggingface-models
 
+      - name: Cache Whisper models (Subtitle Sync)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/whisper
+          key: ${{ runner.os }}-whisper-models
+          restore-keys: |
+            ${{ runner.os }}-whisper-models
+
       - name: Create .env from secrets
         run: |
           printf 'YOUTUBE_API_KEY=%s\n' '${{ secrets.YOUTUBE_API_KEY }}' > .env
