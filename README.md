@@ -28,7 +28,7 @@ This pipeline is powered by a chain of advanced AI models working together seaml
 5. **Perfect Subtitle Synchronization (OpenAI Whisper)**
    - Uses OpenAI's `whisper-timestamped` model as a forced-aligner.
    - Listens to the generated Chatterbox audio and mathematically extracts the exact start and end millisecond of every spoken word.
-   - Feeds this microsecond data into the subtitle engine to generate perfectly synced, "MrBeast-style" pop-in word animations.
+   - Feeds this microsecond data into the subtitle engine to generate perfectly synced, dynamic kinetic typography (word-by-word pop-in animations).
 
 6. **100% Cloud Automated CI/CD (GitHub Actions)**
    - Runs on a CRON schedule (twice a day).
@@ -53,8 +53,8 @@ Using generic stock footage was boring. To make the videos feel premium, we buil
 The Edge-TTS voice was still too robotic for a "Real Creator" vibe. We ripped out Edge-TTS and installed the heavy-duty **Chatterbox TTS** model. Because this is a massive PyTorch model, we had to configure the pipeline to load it directly into GitHub Actions' CPU memory. The result was a dramatic increase in voice quality, emotion, and realism.
 
 ### Phase 5: Subtitle Sync Restoration (Whisper AI)
-Upgrading to Chatterbox created a massive problem: unlike Edge-TTS, Chatterbox did not provide a "cheat sheet" of timestamps for when each word was spoken. This completely broke our MrBeast-style pop-in subtitles. 
-To fix this without downgrading the voice, we integrated **OpenAI's Whisper AI** (`whisper-timestamped`). We chained the models together: after Chatterbox generates the `.wav` audio, Whisper immediately listens to it and acts as an ultra-precise stopwatch, mapping out the exact millisecond every word is spoken. The subtitles were perfectly synced once again.
+Upgrading to Chatterbox created a massive problem: unlike Edge-TTS, Chatterbox did not provide a "cheat sheet" of timestamps for when each word was spoken. This completely broke our word-by-word kinetic typography. 
+To fix this without downgrading the voice, we integrated **OpenAI's Whisper AI** (`whisper-timestamped`). We chained the models together: after Chatterbox generates the `.wav` audio, Whisper immediately listens to it and acts as an ultra-precise stopwatch, mapping out the exact millisecond every word is spoken. The kinetic subtitles were perfectly synced once again.
 
 ### Phase 6: The API Resilience Update
 As the AI got smarter, it started searching DuckDuckGo for photos of specific players (e.g., "Cristiano Ronaldo frustrated"). However, DuckDuckGo's anti-bot protection started throwing `403 Ratelimit` errors, crashing the pipeline on GitHub Actions.
