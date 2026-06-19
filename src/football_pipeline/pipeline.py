@@ -74,7 +74,7 @@ class FootballPipeline:
         video_id = YouTubeUploader(self.settings).upload(video_path, topic)
         
         # Save to upload_history.json for Analytics Feedback Loop
-        history_path = self.settings.workspace_dir / "upload_history.json"
+        history_path = Path("upload_history.json")
         import json
         history = []
         if history_path.exists():

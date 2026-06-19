@@ -158,28 +158,49 @@ def build_moviepy_edit(
             print(f"  Generating Parallax clip for {broll_path.name}...")
             clip = _create_parallax_clip(broll_path, length)
         else:
-            clip = VideoFileClip(str(broll_path))
-
-            # Crop to 9:8 (1080×960)
-            clip = clip.resize(width=1080)
-            if clip.h > 960:
-                y_center = clip.h / 2
-                clip = clip.crop(x1=0, y1=y_center - 480, x2=1080, y2=y_center + 480)
-            else:
-                clip = clip.resize(width=1080, height=960)
+            raw_clip = VideoFileClip(str(broll_path)).without_audio()
 
             # Loop short clips; smartly extract from middle of long ones
-            if clip.duration < length:
+            if raw_clip.duration < length:
                 import moviepy.video.fx.all as vfx
-                clip = clip.fx(vfx.loop, duration=length)
+                raw_clip = raw_clip.fx(vfx.loop, duration=length)
             else:
                 import random
-                buffer = clip.duration * 0.15
-                if clip.duration - (2 * buffer) >= length:
-                    start_t = random.uniform(buffer, clip.duration - buffer - length)
+                buffer = raw_clip.duration * 0.15
+                if raw_clip.duration - (2 * buffer) >= length:
+                    start_t = random.uniform(buffer, raw_clip.duration - buffer - length)
                 else:
-                    start_t = random.uniform(0, max(0, clip.duration - length))
-                clip = clip.subclip(start_t, start_t + length)
+                    start_t = random.uniform(0, max(0, raw_clip.duration - length))
+                raw_clip = raw_clip.subclip(start_t, start_t + length)
+                
+            # Create Foreground (original ratio, fit inside 1080x960)
+            fg_clip = raw_clip.resize(width=1080)
+            if fg_clip.h > 960:
+                fg_clip = fg_clip.resize(height=960)
+                
+            # Create Background (blown up and blurred fast)
+            bg_clip = raw_clip.resize(height=960)
+            if bg_clip.w < 1080:
+                bg_clip = bg_clip.resize(width=1080)
+            
+            x_center = bg_clip.w / 2
+            y_center = bg_clip.h / 2
+            bg_clip = bg_clip.crop(x1=x_center - 540, y1=y_center - 480, x2=x_center + 540, y2=y_center + 480)
+            
+            def blur_frame(image):
+                from PIL import Image, ImageFilter
+                import numpy as np
+                img = Image.fromarray(image)
+                # Scale down 4x for extreme speed, blur, then scale up
+                img.thumbnail((270, 240))
+                img = img.filter(ImageFilter.GaussianBlur(radius=5))
+                img = img.resize((1080, 960), Image.Resampling.BILINEAR)
+                return np.array(img)
+                
+            bg_clip = bg_clip.fl_image(blur_frame)
+            
+            from moviepy.editor import CompositeVideoClip
+            clip = CompositeVideoClip([bg_clip, fg_clip.set_position("center")], size=(1080, 960)).set_duration(length)
 
         if cursor > 0:
             clip = clip.crossfadein(0.5)

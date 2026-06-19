@@ -49,7 +49,7 @@ class GeminiTopicClient:
 
         # --- Analytics Feedback Loop ---
         analytics_str = ""
-        upload_history_path = self.settings.workspace_dir / "upload_history.json"
+        upload_history_path = Path("upload_history.json")
         if upload_history_path.exists():
             try:
                 from .youtube_discovery import YouTubeDiscoveryClient
