@@ -69,9 +69,18 @@ class YouTubeUploader:
             _, response = request.next_chunk()
         return response['id']
 
-    @staticmethod
-    def _description(topic: TopicPackage) -> str:
+    def _description(self, topic: TopicPackage) -> str:
         hashtags = " ".join(topic.hashtags)
-        parts = [topic.youtube_description.strip(), "", hashtags.strip()]
+        parts = [topic.youtube_description.strip(), ""]
+        
+        if self.settings.affiliate_link_amazon:
+            parts.append(f"🛒 Grab the official match ball & gear: {self.settings.affiliate_link_amazon}")
+        if self.settings.affiliate_link_fanatics:
+            parts.append(f"👕 Get your favorite player's jersey: {self.settings.affiliate_link_fanatics}")
+            
+        if self.settings.affiliate_link_amazon or self.settings.affiliate_link_fanatics:
+            parts.append("")
+            
+        parts.append(hashtags.strip())
         return "\n".join(part for part in parts if part)
 
