@@ -29,9 +29,9 @@ class FootballPipeline:
         return GeminiTopicClient(self.settings).choose_topic(videos)
 
     def fetch_broll(self, topic: TopicPackage) -> list[BrollAsset]:
-        print("  Fetching high-quality images from DuckDuckGo for Parallax...")
-        from .clients.image_search_client import ImageSearchClient
-        return ImageSearchClient(self.settings).search_images(topic.broll_queries)
+        print("  Fetching high-quality moving video clips from Tenor API...")
+        from .clients.tenor_search_client import TenorSearchClient
+        return TenorSearchClient(self.settings).search_videos(topic.broll_queries)
 
     def generate_voiceover(self, topic: TopicPackage, run_dir: Path) -> Path:
         return ChatterboxTtsClient(self.settings).create_voiceover(topic.script, run_dir / "voiceover.wav")
@@ -41,14 +41,14 @@ class FootballPipeline:
         paths = []
         for i, asset in enumerate(broll_assets):
             # Attempt to extract original extension, default to jpg
-            ext = ".jpg"
+            ext = ".mp4" if asset.source == "tenor" else ".jpg"
             if "." in asset.url.split("/")[-1]:
                 potential_ext = "." + asset.url.split("/")[-1].split(".")[1][:3]
-                if potential_ext.lower() in [".jpg", ".png", ".jpeg", ".webp"]:
+                if potential_ext.lower() in [".jpg", ".png", ".jpeg", ".webp", ".mp4"]:
                     ext = potential_ext.lower()
                     
             output = run_dir / f"broll_{i}{ext}"
-            print(f"  Downloading image {asset.id}...")
+            print(f"  Downloading asset {asset.id} -> {output.name}...")
             try:
                 # Add User-Agent since some image hosts block default requests User-Agent
                 headers = {
