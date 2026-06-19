@@ -47,7 +47,32 @@ class GeminiTopicClient:
             except Exception:
                 pass
 
-        prompt = self._build_prompt(videos, history)
+        # --- Analytics Feedback Loop ---
+        analytics_str = ""
+        upload_history_path = self.settings.workspace_dir / "upload_history.json"
+        if upload_history_path.exists():
+            try:
+                from .youtube_discovery import YouTubeDiscoveryClient
+                yt_client = YouTubeDiscoveryClient(self.settings)
+                upload_history = read_json(upload_history_path)
+                
+                # Get the last 3 video IDs
+                last_3 = upload_history[-3:]
+                video_ids = [item.get("video_id") for item in last_3 if item.get("video_id")]
+                
+                if video_ids:
+                    stats_videos = yt_client.videos_by_ids(video_ids, "analytics_feedback")
+                    if stats_videos:
+                        analytics_str = "\n═══════════════════════════════════════════\nANALYTICS FEEDBACK — Learn from your past videos!\n═══════════════════════════════════════════\n"
+                        analytics_str += "Here is how your recent videos performed. If a topic got high views/comments, DO MORE OF THAT. If it tanked, DO LESS.\n"
+                        for sv in stats_videos:
+                            matching_item = next((item for item in last_3 if item.get("video_id") == sv.id), None)
+                            title = matching_item.get("topic_title", sv.title) if matching_item else sv.title
+                            analytics_str += f"- Topic: '{title}' -> Views: {sv.views}, Likes: {sv.likes}, Comments: {sv.comments}\n"
+            except Exception as exc:
+                print(f"  Warning: Failed to fetch analytics feedback: {exc}")
+
+        prompt = self._build_prompt(videos, history, analytics_str)
         # Retry up to three times if Gemini returns an empty response or 429 rate limit
         for attempt in range(1, 4):
             try:
@@ -95,7 +120,7 @@ class GeminiTopicClient:
         # Keep only the last 50 topics to avoid overflowing the prompt
         write_json(path, history[-50:])
 
-    def _build_prompt(self, videos: list[VideoSignal], history: list[str]) -> str:
+    def _build_prompt(self, videos: list[VideoSignal], history: list[str], analytics_str: str) -> str:
         signal_limit = self.settings.max_signals_for_gemini
         payload = [video.prompt_dict() for video in videos[:signal_limit]]
 
@@ -110,6 +135,7 @@ You are a world-class YouTube Shorts producer and editor with 10 years of experi
 
 Today is {date.today().isoformat()}.
 {history_str}
+{analytics_str}
 Your task is to pick ONE trending football topic connected to FIFA World Cup 2026 and produce a complete, ready-to-publish short-form video package. Think like the best football content creator on the internet.
 
 ═══════════════════════════════════════════

@@ -71,7 +71,26 @@ class FootballPipeline:
         return build_moviepy_edit(topic, broll_paths, voiceover_path, subtitles_path, output_path)
 
     def upload_to_youtube(self, video_path: Path, topic: TopicPackage) -> str:
-        return YouTubeUploader(self.settings).upload(video_path, topic)
+        video_id = YouTubeUploader(self.settings).upload(video_path, topic)
+        
+        # Save to upload_history.json for Analytics Feedback Loop
+        history_path = self.settings.workspace_dir / "upload_history.json"
+        import json
+        history = []
+        if history_path.exists():
+            try:
+                history = json.loads(history_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+                
+        history.append({
+            "video_id": video_id,
+            "topic_title": topic.topic_title,
+            "youtube_title": topic.youtube_title
+        })
+        history_path.write_text(json.dumps(history[-50:], indent=2, ensure_ascii=False), encoding="utf-8")
+        
+        return f"https://www.youtube.com/watch?v={video_id}"
 
 
 def load_topic(path: Path) -> TopicPackage:

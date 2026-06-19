@@ -60,7 +60,7 @@ class YouTubeUploader:
         response = None
         while response is None:
             _, response = request.next_chunk()
-        return f"https://www.youtube.com/watch?v={response['id']}"
+        return response['id']
 
     @staticmethod
     def _description(topic: TopicPackage) -> str:
