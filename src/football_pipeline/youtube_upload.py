@@ -67,7 +67,37 @@ class YouTubeUploader:
         response = None
         while response is None:
             _, response = request.next_chunk()
-        return response['id']
+        
+        video_id = response['id']
+        
+        # Automatically post affiliate links as a pinned/top-level comment
+        comment_parts = []
+        if self.settings.affiliate_link_amazon:
+            comment_parts.append(f"🛒 Grab the official match ball & gear here: {self.settings.affiliate_link_amazon}")
+        if self.settings.affiliate_link_fanatics:
+            comment_parts.append(f"👕 Get your favorite player's jersey here: {self.settings.affiliate_link_fanatics}")
+            
+        if comment_parts:
+            comment_text = "\n".join(comment_parts)
+            try:
+                print(f"  Adding affiliate comment to video {video_id}...")
+                youtube.commentThreads().insert(
+                    part="snippet",
+                    body={
+                        "snippet": {
+                            "videoId": video_id,
+                            "topLevelComment": {
+                                "snippet": {
+                                    "textOriginal": comment_text
+                                }
+                            }
+                        }
+                    }
+                ).execute()
+            except Exception as e:
+                print(f"  Warning: Failed to post affiliate comment: {e}")
+                
+        return video_id
 
     def _description(self, topic: TopicPackage) -> str:
         hashtags = " ".join(topic.hashtags)
