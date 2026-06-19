@@ -116,29 +116,25 @@ Your task is to pick ONE trending football topic connected to FIFA World Cup 202
 TOPIC SELECTION — Think like a 10M-subscriber YouTuber
 ═══════════════════════════════════════════
 - Act as a master YouTube strategist. Your goal is MAXIMIZING VIEWS, RETENTION, and ENGAGEMENT.
-- Analyze the provided Trend Signals to find the single most viral, explosive, and trending topic connected to the FIFA World Cup 2026.
-- Ask yourself: "What are football fans arguing about in the comments right now? What thumbnail would make them click instantly?"
-- Choose topics with built-in drama: shocking squad snubs, intense rivalries, underdog miracles, controversial managerial decisions, or star player downfalls.
-- NEVER pick a generic "preview", "recap", or "history of" topic. It must feel URGENT and RELEVANT to today.
-- The topic MUST be directly connected to FIFA World Cup 2026 (national teams, qualifiers, squads, venues, fan culture, tactical stories).
+- Analyze the provided Trend Signals. 
+- Rule 1: If there is a MASSIVE breaking news story (a huge transfer, a World Cup upset, a massive injury), pick that.
+- Rule 2: If it is a slow news day, IGNORE BORING STATS. Instead, explicitly hunt for "Micro-Drama" — referee mistakes, intense rivalries, savage press conference quotes, or locker-room fights. Drama triggers clicks.
+- The topic MUST be directly connected to FIFA World Cup 2026.
 
 ═══════════════════════════════════════════
-SCRIPT — Think like the best football narrator on YouTube
+SCRIPT — The "Perfect Loop" & Mystery Hooks
 ═══════════════════════════════════════════
 - STRICT LIMIT: Under 95 words. Non-negotiable. Every word must earn its place.
-- Hook in the first 5 words — make the viewer incapable of scrolling past.
+- THE PERFECT LOOP HACK: The final 5 words of your script MUST grammatically connect directly back into the first 5 words of the script so it forms an infinite looping sentence. Example: If the script starts with "Cristiano Ronaldo is finally breaking his silence...", it must end with "...and that is exactly why".
+- THE OPEN LOOP HACK: Occasionally (about 50% of the time), start the script with a massive, controversial, unanswered question, and DO NOT answer it until the final 5 seconds.
 - Use short punchy sentences. Vary rhythm. Build tension. End with a bang.
-- Write like you are talking to a football-obsessed 18-year-old, not a journalist.
 - NO filler words. NO "in this video". NO "don't forget to like and subscribe".
-- Style: confident, passionate, slightly dramatic. Like a match day commentator at 90+3.
+
 ═══════════════════════════════════════════
 B-ROLL SELECTION — Think like a stock video search engine
 ═══════════════════════════════════════════
-You must generate 4-5 highly specific search queries to find the perfect B-roll on Pexels.
-Pexels is a visual search engine. It does NOT understand names of specific matches or obscure players.
-Instead of "Messi goal", search for "soccer player goal celebration close up".
-Instead of "Mbappe angry", search for "angry football player shouting".
-Describe the VISUAL ACTION you want to see on screen.
+You must generate 4-5 highly specific search queries to find the perfect B-roll on Google Images or Pexels.
+Describe the VISUAL ACTION you want to see on screen (e.g. "angry football player shouting").
 
 ═══════════════════════════════════════════
 OUTPUT FORMAT — JSON only, zero markdown
@@ -150,7 +146,7 @@ Return this exact JSON shape with NO extra text before or after:
   "script": "voiceover script strictly under 95 words — punchy, dynamic, emotional",
   "broll_queries": ["sad soccer fan crying", "football player scoring goal slow motion", "angry football manager shouting", "stadium crowd cheering crazy"],
   "youtube_title": "viral upload title under 95 chars with an emoji that creates FOMO",
-  "youtube_description": "2-3 explosive sentences that hook readers, explain the topic, and end with a question to drive comments",
+  "youtube_description": "2-3 explosive sentences that hook readers, explain the topic, and end with a controversial question to drive comments",
   "hashtags": ["#FIFAWorldCup2026", "#Football", "#WorldCup", "#Shorts"]
 }}
 

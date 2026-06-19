@@ -27,9 +27,9 @@ def _build_ass(words: list[dict], ass_path: Path) -> None:
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, "
         "Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        # White bold text, black outline (size 3), small drop-shadow (1), centred low (MarginV=800)
+        # White bold text, black outline (size 3), small drop-shadow (1), centred (MarginV=960 for split screen)
         "Style: Default,DejaVu Sans,68,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,"
-        "-1,0,0,0,100,100,0,0,1,3,1,2,10,10,800,1\n"
+        "-1,0,0,0,100,100,0,0,1,3,1,2,10,10,960,1\n"
         "\n"
         "[Events]\n"
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
@@ -111,8 +111,8 @@ def build_moviepy_edit(
         input_img = Image.open(img_path).convert("RGBA")
         fg_img = remove(input_img)
 
-        # 2. Crop to 9:16 aspect ratio
-        target_ratio = 1080 / 1920.0
+        # 2. Crop to 9:8 aspect ratio (top half of 9:16)
+        target_ratio = 1080 / 960.0
         w, h = input_img.size
         img_ratio = w / h
         
@@ -127,9 +127,9 @@ def build_moviepy_edit(
             bg_crop = input_img.crop((0, top, w, top + new_h))
             fg_crop = fg_img.crop((0, top, w, top + new_h))
             
-        bg_img = bg_crop.resize((1080, 1920), Image.Resampling.LANCZOS)
+        bg_img = bg_crop.resize((1080, 960), Image.Resampling.LANCZOS)
         bg_img = bg_img.filter(ImageFilter.GaussianBlur(radius=15))
-        fg_img = fg_crop.resize((1080, 1920), Image.Resampling.LANCZOS)
+        fg_img = fg_crop.resize((1080, 960), Image.Resampling.LANCZOS)
         
         # 3. Animate with MoviePy
         # Zoom out slowly for background
@@ -146,7 +146,7 @@ def build_moviepy_edit(
         fg_clip = ImageClip(np.array(fg_img)).set_duration(length)
         fg_clip = fg_clip.resize(resize_fg).set_position("center")
         
-        return CompositeVideoClip([bg_clip, fg_clip], size=(1080, 1920)).set_duration(length)
+        return CompositeVideoClip([bg_clip, fg_clip], size=(1080, 960)).set_duration(length)
 
     for broll_path in broll_paths:
         remaining = max(total_seconds - cursor, 0)
@@ -160,13 +160,13 @@ def build_moviepy_edit(
         else:
             clip = VideoFileClip(str(broll_path))
 
-            # Crop to 9:16 (1080×1920)
-            clip = clip.resize(height=1920)
-            if clip.w > 1080:
-                x_center = clip.w / 2
-                clip = clip.crop(x1=x_center - 540, y1=0, x2=x_center + 540, y2=1920)
+            # Crop to 9:8 (1080×960)
+            clip = clip.resize(width=1080)
+            if clip.h > 960:
+                y_center = clip.h / 2
+                clip = clip.crop(x1=0, y1=y_center - 480, x2=1080, y2=y_center + 480)
             else:
-                clip = clip.resize(width=1080, height=1920)
+                clip = clip.resize(width=1080, height=960)
 
             # Loop short clips; smartly extract from middle of long ones
             if clip.duration < length:
@@ -189,8 +189,58 @@ def build_moviepy_edit(
         if cursor >= total_seconds:
             break
 
-    final_video = concatenate_videoclips(video_clips, method="compose")
-    final_video = final_video.set_duration(total_seconds)
+    top_video = concatenate_videoclips(video_clips, method="compose")
+    top_video = top_video.set_duration(total_seconds).set_position(("center", "top"))
+
+    # ── 2.5. Inject Satisfying Video (Dual-Stimulus) ────────────────────────
+    import random
+    from moviepy.editor import CompositeVideoClip
+    
+    bottom_clip = None
+    satisfying_path = Path("assets/satisfying.mp4")
+    if satisfying_path.exists():
+        sat = VideoFileClip(str(satisfying_path)).without_audio()
+        if sat.duration > total_seconds:
+            start_t = random.uniform(0, sat.duration - total_seconds)
+            sat = sat.subclip(start_t, start_t + total_seconds)
+        else:
+            import moviepy.video.fx.all as vfx
+            sat = sat.fx(vfx.loop, duration=total_seconds)
+            
+        # Crop/resize to 1080x960
+        sat = sat.resize(width=1080)
+        if sat.h > 960:
+            y_center = sat.h / 2
+            sat = sat.crop(x1=0, y1=y_center - 480, x2=1080, y2=y_center + 480)
+        else:
+            sat = sat.resize(width=1080, height=960)
+            
+        bottom_clip = sat.set_position(("center", "bottom"))
+    
+    # ── 2.6. Build 1-Frame Thumbnail Injection ───────────────────────────────
+    # We create a 0.1s super-saturated frame of the very first frame to trick the algorithm thumbnail
+    thumb_clip = None
+    if video_clips:
+        first_frame = video_clips[0].get_frame(0)
+        from PIL import Image, ImageEnhance
+        import numpy as np
+        img = Image.fromarray(first_frame)
+        enhancer = ImageEnhance.Color(img)
+        img = enhancer.enhance(2.5) # Hyper-saturate
+        enhancer = ImageEnhance.Brightness(img)
+        img = enhancer.enhance(1.2) # Brighten
+        
+        from moviepy.editor import ImageClip
+        thumb_clip = ImageClip(np.array(img)).set_duration(0.1).set_start(0.1).set_position(("center", "top"))
+
+    # Compose layers
+    layers = [top_video]
+    if bottom_clip:
+        layers.append(bottom_clip)
+    if thumb_clip:
+        layers.append(thumb_clip)
+        
+    final_video = CompositeVideoClip(layers, size=(1080, 1920)).set_duration(total_seconds)
     final_video = final_video.set_audio(audio)
 
     # ── 3. Export raw video (no captions yet) ─────────────────────────────────
