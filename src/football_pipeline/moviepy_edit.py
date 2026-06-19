@@ -203,7 +203,19 @@ def build_moviepy_edit(
             clip = CompositeVideoClip([bg_clip, fg_clip.set_position("center")], size=(1080, 960)).set_duration(length)
 
         if cursor > 0:
-            clip = clip.crossfadein(0.5)
+            import random
+            from moviepy.editor import CompositeVideoClip, ColorClip
+            
+            t_type = random.choice(["crossfade", "dip_to_black", "flash_white", "hard_cut"])
+            
+            if t_type == "crossfade":
+                clip = clip.crossfadein(0.3)
+            elif t_type == "dip_to_black":
+                clip = clip.fadein(0.3)
+            elif t_type == "flash_white":
+                flash = ColorClip(size=(1080, 960), color=(255,255,255)).set_duration(0.15)
+                flash = flash.crossfadeout(0.15)
+                clip = CompositeVideoClip([clip, flash.set_position("center")])
 
         video_clips.append(clip)
         cursor += clip.duration

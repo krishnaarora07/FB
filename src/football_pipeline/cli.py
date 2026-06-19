@@ -84,6 +84,13 @@ def upload_command(args: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+def reply_comments_command(args: argparse.Namespace, settings: Settings) -> int:
+    from .clients.comment_bot import CommentBotClient
+    bot = CommentBotClient(settings)
+    bot.reply_to_comments()
+    return 0
+
+
 def run_command(args: argparse.Namespace, settings: Settings) -> int:
     pipeline = FootballPipeline(settings)
     run_dir = Path(args.run_dir) if args.run_dir else pipeline.create_run_dir()
@@ -175,6 +182,9 @@ def build_parser() -> argparse.ArgumentParser:
     upload.add_argument("--file", required=True)
     upload.add_argument("--topic", required=True)
     upload.set_defaults(func=upload_command)
+
+    reply_comments = subparsers.add_parser("reply-comments")
+    reply_comments.set_defaults(func=reply_comments_command)
 
     run = subparsers.add_parser("run")
     run.add_argument("--dry-run", action="store_true", help="Stop after topic/script generation.")

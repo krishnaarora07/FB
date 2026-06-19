@@ -73,7 +73,7 @@ class GeminiTopicClient:
                 print(f"  Warning: Failed to fetch analytics feedback: {exc}")
 
         prompt = self._build_prompt(videos, history, analytics_str)
-        # Retry up to three times if Gemini returns an empty response or 429 rate limit
+        # Retry up to three times if Gemini returns an empty response, 429 rate limit, or low virality score
         for attempt in range(1, 4):
             try:
                 response = client.models.generate_content(
@@ -88,29 +88,58 @@ class GeminiTopicClient:
                     continue
                 raise
 
-            # Prefer response.text if available
+            topic_text = None
             if getattr(response, "text", None):
-                topic = TopicPackage.from_dict(_parse_jsonish(response.text))
-                self._save_history(history_path, history, topic.topic_title)
-                return topic
-            # Fallback: extract text from first candidate if present
-            if hasattr(response, "candidates") and response.candidates:
+                topic_text = response.text
+            elif hasattr(response, "candidates") and response.candidates:
                 candidate = response.candidates[0]
-                # Different library versions may expose parts differently
                 try:
                     part = candidate.content.parts[0]
-                    candidate_text = getattr(part, "text", None) or getattr(part, "display_text", None)
+                    topic_text = getattr(part, "text", None) or getattr(part, "display_text", None)
                 except Exception:
-                    candidate_text = None
-                if candidate_text:
-                    topic = TopicPackage.from_dict(_parse_jsonish(candidate_text))
-                    self._save_history(history_path, history, topic.topic_title)
-                    return topic
-            # If no text, wait and retry (exponential back-off)
+                    pass
+
+            if topic_text:
+                topic = TopicPackage.from_dict(_parse_jsonish(topic_text))
+                
+                # --- Virality Predictor Quality Gate ---
+                score_prompt = f"""You are a brutal YouTube shorts critic. Rate this script out of 10 for virality.
+Script: "{topic.script}"
+Title: "{topic.youtube_title}"
+
+Respond in JSON only: {{"score": 7, "reason": "too slow to hook"}}
+
+Score criteria:
+- 9-10: Explosive hook, high drama, strong loop
+- 7-8: Good, publishable
+- Below 7: REJECT — too boring, too slow, or no hook"""
+                
+                try:
+                    score_response = client.models.generate_content(
+                        model=model_name,
+                        contents=score_prompt,
+                    )
+                    score_data = _parse_jsonish(getattr(score_response, "text", "{}"))
+                    score = int(score_data.get("score", 10))
+                    reason = score_data.get("reason", "")
+                    print(f"  Virality Predictor Score: {score}/10 (Reason: {reason})")
+                    
+                    if score < 7 and attempt < 3:
+                        print("  Script rejected for low virality score. Forcing Gemini to rewrite...")
+                        prompt += f"\nCRITICAL FEEDBACK FROM PREVIOUS ATTEMPT: Your last script was rejected because: {reason}. Make it much more explosive and dramatic."
+                        import time
+                        time.sleep(2)
+                        continue
+                except Exception as e:
+                    print(f"  Warning: Virality Predictor failed ({e}), accepting script anyway.")
+                    
+                self._save_history(history_path, history, topic.topic_title)
+                return topic
+
             if attempt < 3:
                 import time
                 time.sleep(attempt * 5)
-        # After three attempts, raise a clear error
+                
         raise RuntimeError(
             "Gemini returned an empty response after 3 attempts - check your API key, model name, and network connectivity."
         )

@@ -6,7 +6,7 @@ from .config import Settings
 from .models import TopicPackage
 
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+SCOPES = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.force-ssl"]
 
 
 class YouTubeUploader:
@@ -43,6 +43,12 @@ class YouTubeUploader:
             token_file.write_text(creds.to_json(), encoding="utf-8")
 
         youtube = build("youtube", "v3", credentials=creds)
+        from datetime import datetime, timezone, timedelta
+        publish_dt = datetime.now(timezone.utc).replace(hour=18, minute=0, second=0, microsecond=0)
+        if datetime.now(timezone.utc) > publish_dt:
+            publish_dt += timedelta(days=1)
+        publish_at_str = publish_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
         body = {
             "snippet": {
                 "title": topic.youtube_title[:100],
@@ -51,7 +57,8 @@ class YouTubeUploader:
                 "categoryId": self.settings.youtube_upload_category_id,
             },
             "status": {
-                "privacyStatus": self.settings.youtube_upload_privacy_status,
+                "privacyStatus": "private",
+                "publishAt": publish_at_str,
                 "selfDeclaredMadeForKids": False,
             },
         }
