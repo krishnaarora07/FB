@@ -72,10 +72,6 @@ jobs:
           printf 'PEXELS_API_KEY=%s\n' '${{ secrets.PEXELS_API_KEY }}' >> .env
           printf 'GOOGLE_SEARCH_API_KEY=%s\n' '${{ secrets.GOOGLE_SEARCH_API_KEY }}' >> .env
           printf 'GOOGLE_SEARCH_ENGINE_ID=%s\n' '${{ secrets.GOOGLE_SEARCH_ENGINE_ID }}' >> .env
-          printf 'X_CONSUMER_KEY=%s\n' '${{ secrets.X_CONSUMER_KEY }}' >> .env
-          printf 'X_CONSUMER_SECRET=%s\n' '${{ secrets.X_CONSUMER_SECRET }}' >> .env
-          printf 'X_ACCESS_TOKEN=%s\n' '${{ secrets.X_ACCESS_TOKEN }}' >> .env
-          printf 'X_ACCESS_TOKEN_SECRET=%s\n' '${{ secrets.X_ACCESS_TOKEN_SECRET }}' >> .env
           printf 'YOUTUBE_CLIENT_SECRETS_FILE=client_secret.json\n' >> .env
           printf 'YOUTUBE_TOKEN_FILE=token.json\n' >> .env
           printf 'YOUTUBE_UPLOAD_PRIVACY_STATUS=public\n' >> .env
