@@ -144,7 +144,9 @@ def build_moviepy_edit(
         bg_clip = bg_clip.resize(resize_bg).set_position("center")
         
         fg_clip = ImageClip(np.array(fg_img)).set_duration(length)
-        fg_clip = fg_clip.resize(resize_fg).set_position("center")
+        fg_clip = fg_clip.resize(resize_fg)
+        # Force exact dimension with transparent padding to bypass CompositeVideoClip positioning bugs
+        fg_clip = fg_clip.on_color(size=(1080, 960), color=(0,0,0), col_opacity=0, pos="center")
         
         return CompositeVideoClip([bg_clip, fg_clip], size=(1080, 960)).set_duration(length)
 
@@ -193,8 +195,7 @@ def build_moviepy_edit(
             def blur_frame(image):
                 from PIL import Image, ImageFilter
                 import numpy as np
-                img = Image.fromarray(image)
-                # Scale down 4x for extreme speed, blur, then scale up
+                img = Image.fromarray(image).convert("RGB")
                 img.thumbnail((270, 240))
                 img = img.filter(ImageFilter.GaussianBlur(radius=5))
                 img = img.resize((1080, 960), Image.Resampling.BILINEAR)
@@ -202,8 +203,11 @@ def build_moviepy_edit(
                 
             bg_clip = bg_clip.fl_image(blur_frame)
             
+            # Force exact dimension with transparent padding to bypass CompositeVideoClip positioning bugs
+            fg_clip = fg_clip.on_color(size=(1080, 960), color=(0,0,0), col_opacity=0, pos="center")
+            
             from moviepy.editor import CompositeVideoClip
-            clip = CompositeVideoClip([bg_clip, fg_clip.set_position("center")], size=(1080, 960)).set_duration(length)
+            clip = CompositeVideoClip([bg_clip, fg_clip], size=(1080, 960)).set_duration(length)
 
         if cursor > 0:
             import random
