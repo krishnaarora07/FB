@@ -74,6 +74,8 @@ class YouTubeUploader:
         comment_parts = []
         if self.settings.affiliate_link_amazon:
             comment_parts.append(f"🛒 Grab the official match ball & gear here: {self.settings.affiliate_link_amazon}")
+        if self.settings.affiliate_link_amazon_2:
+            comment_parts.append(f"⚡ Upgrade your football kit here: {self.settings.affiliate_link_amazon_2}")
         if self.settings.affiliate_link_fanatics:
             comment_parts.append(f"👕 Get your favorite player's jersey here: {self.settings.affiliate_link_fanatics}")
             
@@ -105,10 +107,12 @@ class YouTubeUploader:
         
         if self.settings.affiliate_link_amazon:
             parts.append(f"🛒 Grab the official match ball & gear: {self.settings.affiliate_link_amazon}")
+        if self.settings.affiliate_link_amazon_2:
+            parts.append(f"⚡ Upgrade your football kit here: {self.settings.affiliate_link_amazon_2}")
         if self.settings.affiliate_link_fanatics:
             parts.append(f"👕 Get your favorite player's jersey: {self.settings.affiliate_link_fanatics}")
             
-        if self.settings.affiliate_link_amazon or self.settings.affiliate_link_fanatics:
+        if self.settings.affiliate_link_amazon or self.settings.affiliate_link_amazon_2 or self.settings.affiliate_link_fanatics:
             parts.append("")
             
         parts.append(hashtags.strip())

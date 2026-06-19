@@ -73,6 +73,7 @@ jobs:
           printf 'GOOGLE_SEARCH_API_KEY=%s\n' '${{ secrets.GOOGLE_SEARCH_API_KEY }}' >> .env
           printf 'GOOGLE_SEARCH_ENGINE_ID=%s\n' '${{ secrets.GOOGLE_SEARCH_ENGINE_ID }}' >> .env
           printf 'AFFILIATE_LINK_AMAZON=%s\n' '${{ secrets.AFFILIATE_LINK_AMAZON }}' >> .env
+          printf 'AFFILIATE_LINK_AMAZON_2=%s\n' '${{ secrets.AFFILIATE_LINK_AMAZON_2 }}' >> .env
           printf 'AFFILIATE_LINK_FANATICS=%s\n' '${{ secrets.AFFILIATE_LINK_FANATICS }}' >> .env
           printf 'YOUTUBE_CLIENT_SECRETS_FILE=client_secret.json\n' >> .env
           printf 'YOUTUBE_TOKEN_FILE=token.json\n' >> .env

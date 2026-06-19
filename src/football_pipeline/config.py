@@ -45,6 +45,7 @@ class Settings:
     max_fifa_uploads: int
     football_keywords: list[str]
     affiliate_link_amazon: str | None
+    affiliate_link_amazon_2: str | None
     affiliate_link_fanatics: str | None
     output_dir: Path
     script_seconds: int
@@ -73,6 +74,7 @@ class Settings:
                 "football,soccer,fifa,world cup,worldcup,world cup 2026,2026 world cup,qualifier,qualifiers,fixture,squad,draw,goal,goals,striker,keeper,penalty",
             ),
             affiliate_link_amazon=os.getenv("AFFILIATE_LINK_AMAZON"),
+            affiliate_link_amazon_2=os.getenv("AFFILIATE_LINK_AMAZON_2"),
             affiliate_link_fanatics=os.getenv("AFFILIATE_LINK_FANATICS"),
             output_dir=Path(os.getenv("OUTPUT_DIR", "runs")),
             script_seconds=_int("SCRIPT_SECONDS", 45),
