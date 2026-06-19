@@ -158,28 +158,31 @@ def build_moviepy_edit(
             print(f"  Generating Parallax clip for {broll_path.name}...")
             clip = _create_parallax_clip(broll_path, length)
         else:
-            raw_clip = VideoFileClip(str(broll_path)).without_audio()
+            raw_fg = VideoFileClip(str(broll_path)).without_audio()
+            raw_bg = VideoFileClip(str(broll_path)).without_audio()
 
             # Loop short clips; smartly extract from middle of long ones
-            if raw_clip.duration < length:
+            if raw_fg.duration < length:
                 import moviepy.video.fx.all as vfx
-                raw_clip = raw_clip.fx(vfx.loop, duration=length)
+                raw_fg = raw_fg.fx(vfx.loop, duration=length)
+                raw_bg = raw_bg.fx(vfx.loop, duration=length)
             else:
                 import random
-                buffer = raw_clip.duration * 0.15
-                if raw_clip.duration - (2 * buffer) >= length:
-                    start_t = random.uniform(buffer, raw_clip.duration - buffer - length)
+                buffer = raw_fg.duration * 0.15
+                if raw_fg.duration - (2 * buffer) >= length:
+                    start_t = random.uniform(buffer, raw_fg.duration - buffer - length)
                 else:
-                    start_t = random.uniform(0, max(0, raw_clip.duration - length))
-                raw_clip = raw_clip.subclip(start_t, start_t + length)
+                    start_t = random.uniform(0, max(0, raw_fg.duration - length))
+                raw_fg = raw_fg.subclip(start_t, start_t + length)
+                raw_bg = raw_bg.subclip(start_t, start_t + length)
                 
             # Create Foreground (original ratio, fit inside 1080x960)
-            fg_clip = raw_clip.resize(width=1080)
+            fg_clip = raw_fg.resize(width=1080)
             if fg_clip.h > 960:
                 fg_clip = fg_clip.resize(height=960)
                 
             # Create Background (blown up and blurred fast)
-            bg_clip = raw_clip.resize(height=960)
+            bg_clip = raw_bg.resize(height=960)
             if bg_clip.w < 1080:
                 bg_clip = bg_clip.resize(width=1080)
             
