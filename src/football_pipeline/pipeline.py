@@ -26,7 +26,9 @@ class FootballPipeline:
         return YouTubeDiscoveryClient(self.settings).collect()
 
     def ideate(self, videos: list[VideoSignal]) -> TopicPackage:
-        return GeminiTopicClient(self.settings).choose_topic(videos)
+        from .clients.trends_client import GoogleTrendsClient
+        trends = GoogleTrendsClient(self.settings).get_football_trends()
+        return GeminiTopicClient(self.settings).choose_topic(videos, trends)
 
     def fetch_broll(self, topic: TopicPackage) -> list[BrollAsset]:
         print("  Fetching high-quality moving video clips from Tenor API...")

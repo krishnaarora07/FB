@@ -27,7 +27,7 @@ class GeminiTopicClient:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    def choose_topic(self, videos: list[VideoSignal]) -> TopicPackage:
+    def choose_topic(self, videos: list[VideoSignal], trends: list[str]) -> TopicPackage:
         # Retrieve API key, raise if missing
         api_key = self.settings.require(self.settings.gemini_api_key, "GEMINI_API_KEY or GOOGLE_API_KEY")
         try:
@@ -72,7 +72,7 @@ class GeminiTopicClient:
             except Exception as exc:
                 print(f"  Warning: Failed to fetch analytics feedback: {exc}")
 
-        prompt = self._build_prompt(videos, history, analytics_str)
+        prompt = self._build_prompt(videos, history, analytics_str, trends)
         # Retry up to three times if Gemini returns an empty response, 429 rate limit, or low virality score
         for attempt in range(1, 4):
             try:
@@ -149,7 +149,7 @@ Score criteria:
         # Keep only the last 50 topics to avoid overflowing the prompt
         write_json(path, history[-50:])
 
-    def _build_prompt(self, videos: list[VideoSignal], history: list[str], analytics_str: str) -> str:
+    def _build_prompt(self, videos: list[VideoSignal], history: list[str], analytics_str: str, trends: list[str]) -> str:
         signal_limit = self.settings.max_signals_for_gemini
         payload = [video.prompt_dict() for video in videos[:signal_limit]]
 
@@ -159,12 +159,20 @@ Score criteria:
             for t in history:
                 history_str += f"- {t}\n"
 
+        trends_str = ""
+        if trends:
+            trends_str = "═══════════════════════════════════════════\nGOOGLE SEARCH TRENDS (Real-time Spikes)\n═══════════════════════════════════════════\n"
+            trends_str += "The following topics are actively spiking on Google right now. IF one of these overlaps with a YouTube trend, prioritize it highly:\n"
+            for tr in trends:
+                trends_str += f"- {tr}\n"
+
         return f"""
 You are a world-class YouTube Shorts producer and editor with 10 years of experience creating viral football content. You have an obsessive eye for quality, perfect timing, and know exactly which raw footage will hook viewers in the first 0.5 seconds. Your videos regularly hit 1M+ views.
 
 Today is {date.today().isoformat()}.
 {history_str}
 {analytics_str}
+{trends_str}
 Your task is to pick ONE trending football topic connected to FIFA World Cup 2026 and produce a complete, ready-to-publish short-form video package. Think like the best football content creator on the internet.
 
 ═══════════════════════════════════════════
