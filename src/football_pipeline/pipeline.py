@@ -11,6 +11,7 @@ from .config import Settings
 from .moviepy_edit import build_moviepy_edit
 from .models import TopicPackage, VideoSignal, BrollAsset, read_json, write_json
 from .youtube_upload import YouTubeUploader
+from .clients.twitter_client import TwitterClient
 
 
 class FootballPipeline:
@@ -90,7 +91,13 @@ class FootballPipeline:
         })
         history_path.write_text(json.dumps(history[-50:], indent=2, ensure_ascii=False), encoding="utf-8")
         
+        # Upload to Twitter
+        self.upload_to_twitter(video_path, topic)
+        
         return f"https://www.youtube.com/watch?v={video_id}"
+
+    def upload_to_twitter(self, video_path: Path, topic: TopicPackage) -> str | None:
+        return TwitterClient(self.settings).upload_to_twitter(video_path, topic)
 
 
 def load_topic(path: Path) -> TopicPackage:

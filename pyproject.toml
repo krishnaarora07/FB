@@ -22,6 +22,7 @@ dependencies = [
     "requests>=2.31.0",
     "rembg[cpu]>=2.0.0",
     "whisper-timestamped",
+    "tweepy>=4.14.0",
 ]
 
 [project.scripts]

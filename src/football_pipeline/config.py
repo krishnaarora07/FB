@@ -35,6 +35,10 @@ class Settings:
     pexels_api_key: str | None
     google_search_api_key: str | None
     google_search_engine_id: str | None
+    x_consumer_key: str | None
+    x_consumer_secret: str | None
+    x_access_token: str | None
+    x_access_token_secret: str | None
     youtube_client_secrets_file: Path
     youtube_token_file: Path
     youtube_upload_privacy_status: str
@@ -58,6 +62,10 @@ class Settings:
             pexels_api_key=os.getenv("PEXELS_API_KEY"),
             google_search_api_key=os.getenv("GOOGLE_SEARCH_API_KEY"),
             google_search_engine_id=os.getenv("GOOGLE_SEARCH_ENGINE_ID"),
+            x_consumer_key=os.getenv("X_CONSUMER_KEY"),
+            x_consumer_secret=os.getenv("X_CONSUMER_SECRET"),
+            x_access_token=os.getenv("X_ACCESS_TOKEN"),
+            x_access_token_secret=os.getenv("X_ACCESS_TOKEN_SECRET"),
             youtube_client_secrets_file=Path(os.getenv("YOUTUBE_CLIENT_SECRETS_FILE", "client_secret.json")),
             youtube_token_file=Path(os.getenv("YOUTUBE_TOKEN_FILE", "token.json")),
             youtube_upload_privacy_status=os.getenv("YOUTUBE_UPLOAD_PRIVACY_STATUS", "public"),
