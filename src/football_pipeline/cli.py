@@ -93,6 +93,28 @@ def reply_comments_command(args: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+def authenticate_command(args: argparse.Namespace, settings: Settings) -> int:
+    try:
+        from google_auth_oauthlib.flow import InstalledAppFlow
+    except ImportError as exc:
+        raise RuntimeError("Install Google upload dependencies with: pip install -e .") from exc
+        
+    from .youtube_upload import SCOPES
+    if not settings.youtube_client_secrets_file.exists():
+        raise RuntimeError(f"Missing OAuth client secrets file: {settings.youtube_client_secrets_file}")
+        
+    print(f"Starting authentication flow with scopes: {SCOPES}")
+    flow = InstalledAppFlow.from_client_secrets_file(
+        str(settings.youtube_client_secrets_file),
+        SCOPES,
+    )
+    creds = flow.run_local_server(port=0)
+    settings.youtube_token_file.write_text(creds.to_json(), encoding="utf-8")
+    print(f"✅ Successfully authenticated! New token written to: {settings.youtube_token_file.resolve()}")
+    print("Please open this file, copy its contents, and update your YOUTUBE_TOKEN_JSON GitHub Secret.")
+    return 0
+
+
 def run_command(args: argparse.Namespace, settings: Settings) -> int:
     pipeline = FootballPipeline(settings)
     run_dir = Path(args.run_dir) if args.run_dir else pipeline.create_run_dir()
@@ -188,6 +210,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     reply_comments = subparsers.add_parser("reply-comments")
     reply_comments.set_defaults(func=reply_comments_command)
+
+    authenticate = subparsers.add_parser("authenticate", help="Authenticate with Google and generate a new token.json")
+    authenticate.set_defaults(func=authenticate_command)
 
     run = subparsers.add_parser("run")
     run.add_argument("--dry-run", action="store_true", help="Stop after topic/script generation.")
