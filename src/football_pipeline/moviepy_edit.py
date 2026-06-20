@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+# Patch Pillow >= 10.0.0 for moviepy 1.0.3 compatibility
+import PIL.Image
+if not hasattr(PIL.Image, 'ANTIALIAS'):
+    PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
+
 from moviepy.editor import (
     AudioFileClip,
     VideoFileClip,

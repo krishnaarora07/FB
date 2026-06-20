@@ -10,10 +10,16 @@ src/football_pipeline/pipeline.py
 src/football_pipeline/signal_processing.py
 src/football_pipeline/youtube_upload.py
 src/football_pipeline/clients/__init__.py
-src/football_pipeline/clients/edge_tts_client.py
+src/football_pipeline/clients/analytics_client.py
+src/football_pipeline/clients/chatterbox_tts_client.py
+src/football_pipeline/clients/comment_bot.py
 src/football_pipeline/clients/elevenlabs_client.py
 src/football_pipeline/clients/gemini_client.py
 src/football_pipeline/clients/gtts_client.py
+src/football_pipeline/clients/image_search_client.py
+src/football_pipeline/clients/pexels_client.py
+src/football_pipeline/clients/tenor_search_client.py
+src/football_pipeline/clients/trends_client.py
 src/football_pipeline/clients/youtube_discovery.py
 src/football_pipeline/clients/youtube_util.py
 src/football_trend_pipeline.egg-info/PKG-INFO

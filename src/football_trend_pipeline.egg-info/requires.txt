@@ -2,7 +2,14 @@ google-api-python-client>=2.0.0
 google-auth-oauthlib>=1.0.0
 google-genai>=1.0.0
 python-dotenv>=1.0.0
-edge-tts>=6.1.12
+chatterbox-tts
+torch
+torchaudio
 moviepy<2.0.0
-Pillow<10.0.0
-pytubefix>=8.5.1
+Pillow>=10.0.0
+yt-dlp>=2024.0.0
+requests>=2.31.0
+rembg[cpu]>=2.0.0
+whisper-timestamped
+pytrends>=4.9.2
+pandas>=2.0.0
