@@ -256,6 +256,7 @@ B-ROLL SELECTION — Think like a stock video search engine
 ═══════════════════════════════════════════
 You MUST generate EXACTLY ONE visual segment for every single sentence in your script.
 For each sentence, describe the VISUAL ACTION you want to see on screen (e.g. "angry football player shouting").
+Also specify the `asset_type`: Use "image" for high-quality player shots (Google), and use "gif" for funny memes, intense reactions, or specific short video loops (Tenor). KEEP "gif" LIMITED (mostly use "image").
 This 1-to-1 mapping is critical for perfectly synchronizing the images to the TTS audio.
 
 ═══════════════════════════════════════════
@@ -266,8 +267,8 @@ Return this exact JSON shape with NO extra text before or after:
   "topic_title": "short topic name (max 8 words)",
   "angle": "one electrifying sentence explaining why this topic is unmissable right now",
   "visual_segments": [
-    {"text": "First sentence of the script...", "broll_query": "angry football manager shouting"},
-    {"text": "Second sentence of the script...", "broll_query": "sad soccer fan crying"}
+    {"text": "First sentence of the script...", "broll_query": "angry football manager shouting", "asset_type": "image"},
+    {"text": "Second sentence of the script...", "broll_query": "sad soccer fan crying", "asset_type": "gif"}
   ],
   "youtube_title": "viral upload title under 95 chars with an emoji that creates FOMO",
   "youtube_description": "2-3 explosive sentences that hook readers, naturally weave in highly-searched SEO keywords (like specific player names, teams, and 'Football Shorts'), and end with a controversial question.",

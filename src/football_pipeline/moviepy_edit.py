@@ -146,7 +146,7 @@ def build_moviepy_edit(
             fg_crop = fg_img.crop((0, top, w, top + new_h))
             
         bg_img = bg_crop.resize((1080, 960), Image.Resampling.LANCZOS)
-        bg_img = bg_img.filter(ImageFilter.GaussianBlur(radius=15))
+        # Background blur removed as per user request to not blur anything
         fg_img = fg_crop.resize((1080, 960), Image.Resampling.LANCZOS)
         
         # 3. Animate with MoviePy
@@ -224,7 +224,7 @@ def build_moviepy_edit(
                 import numpy as np
                 img = Image.fromarray(image).convert("RGB")
                 img.thumbnail((270, 240))
-                img = img.filter(ImageFilter.GaussianBlur(radius=5))
+                # Background blur removed as per user request to not blur anything
                 img = img.resize((1080, 960), Image.Resampling.BILINEAR)
                 return np.array(img)
                 

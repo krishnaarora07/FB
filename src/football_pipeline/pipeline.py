@@ -35,9 +35,32 @@ class FootballPipeline:
         return GeminiTopicClient(self.settings).choose_topic(videos, trends, insights)
 
     def fetch_broll(self, topic: TopicPackage) -> list[BrollAsset]:
-        print("  Fetching high-resolution images from Google Custom Search...")
+        print("  Fetching dynamic B-roll (Google Images + Tenor GIFs)...")
         from .clients.image_search_client import ImageSearchClient
-        return ImageSearchClient(self.settings).search_images(topic.broll_queries)
+        from .clients.tenor_search_client import TenorSearchClient
+        
+        assets = []
+        img_client = ImageSearchClient(self.settings)
+        tenor_client = TenorSearchClient(self.settings)
+        
+        if hasattr(topic, "visual_segments") and topic.visual_segments:
+            for idx, seg in enumerate(topic.visual_segments):
+                query = seg.get("broll_query", "")
+                asset_type = seg.get("asset_type", "image")
+                
+                if asset_type == "gif":
+                    res = tenor_client.search_videos([query])
+                else:
+                    res = img_client.search_images([query])
+                    
+                if res:
+                    # Update ID to prevent collisions
+                    res[0] = BrollAsset(id=f"seg_{idx}_{res[0].id}", url=res[0].url, source=res[0].source)
+                    assets.append(res[0])
+        else:
+            assets = img_client.search_images(topic.broll_queries)
+            
+        return assets
 
     def generate_voiceover(self, topic: TopicPackage, run_dir: Path) -> Path:
         return ChatterboxTtsClient(self.settings).create_voiceover(topic.script, run_dir / "voiceover.wav")
