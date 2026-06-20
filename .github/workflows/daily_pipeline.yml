@@ -38,7 +38,10 @@ jobs:
           fc-list | grep -i dejavu | head -5
 
       - name: Install Python dependencies
-        run: pip install -e .
+        run: |
+          pip install numpy cython
+          pip install pkuseg --no-build-isolation
+          pip install -e .
 
       - name: Cache rembg u2net models
         uses: actions/cache@v4
