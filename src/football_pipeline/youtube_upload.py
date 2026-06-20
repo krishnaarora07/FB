@@ -13,7 +13,7 @@ class YouTubeUploader:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    def upload(self, video_path: Path, topic: TopicPackage) -> str:
+    def upload(self, video_path: Path, topic: TopicPackage) -> tuple[str, str]:
         try:
             from google.auth.transport.requests import Request
             from google.oauth2.credentials import Credentials
@@ -44,9 +44,26 @@ class YouTubeUploader:
 
         youtube = build("youtube", "v3", credentials=creds)
         from datetime import datetime, timezone, timedelta
-        publish_dt = datetime.now(timezone.utc).replace(hour=18, minute=0, second=0, microsecond=0)
-        if datetime.now(timezone.utc) > publish_dt:
+        import json
+
+        now = datetime.now(timezone.utc)
+        publish_dt = now.replace(hour=18, minute=0, second=0, microsecond=0)
+        if now > publish_dt:
             publish_dt += timedelta(days=1)
+            
+        history_path = Path("upload_history.json")
+        last_scheduled = None
+        if history_path.exists():
+            try:
+                history = json.loads(history_path.read_text(encoding="utf-8"))
+                if history and "scheduled_for" in history[-1]:
+                    last_scheduled = datetime.fromisoformat(history[-1]["scheduled_for"].replace("Z", "+00:00"))
+            except Exception:
+                pass
+                
+        if last_scheduled and last_scheduled > now:
+            publish_dt = max(publish_dt, last_scheduled + timedelta(hours=4))
+            
         publish_at_str = publish_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         body = {
@@ -99,7 +116,7 @@ class YouTubeUploader:
             except Exception as e:
                 print(f"  Warning: Failed to post affiliate comment: {e}")
                 
-        return video_id
+        return video_id, publish_at_str
 
     def _description(self, topic: TopicPackage) -> str:
         hashtags = " ".join(topic.hashtags)

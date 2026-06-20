@@ -73,7 +73,7 @@ class FootballPipeline:
         return build_moviepy_edit(topic, broll_paths, voiceover_path, subtitles_path, output_path)
 
     def upload_to_youtube(self, video_path: Path, topic: TopicPackage) -> str:
-        video_id = YouTubeUploader(self.settings).upload(video_path, topic)
+        video_id, scheduled_for = YouTubeUploader(self.settings).upload(video_path, topic)
         
         # Save to upload_history.json for Analytics Feedback Loop
         history_path = Path("upload_history.json")
@@ -88,7 +88,8 @@ class FootballPipeline:
         history.append({
             "video_id": video_id,
             "topic_title": topic.topic_title,
-            "youtube_title": topic.youtube_title
+            "youtube_title": topic.youtube_title,
+            "scheduled_for": scheduled_for
         })
         history_path.write_text(json.dumps(history[-50:], indent=2, ensure_ascii=False), encoding="utf-8")
         
