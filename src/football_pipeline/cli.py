@@ -24,8 +24,9 @@ def collect_command(args: argparse.Namespace, settings: Settings) -> int:
 
 def ideate_command(args: argparse.Namespace, settings: Settings) -> int:
     pipeline = FootballPipeline(settings)
+    insights = pipeline.get_insights()
     videos = [TopicSignalAdapter(item) for item in read_json(Path(args.signals))]
-    topic = pipeline.ideate(videos)
+    topic = pipeline.ideate(videos, insights)
     write_json(Path(args.out), topic)
     print(topic.topic_title)
     _print_path("Topic", Path(args.out))
@@ -71,7 +72,8 @@ def render_command(args: argparse.Namespace, settings: Settings) -> int:
     voiceover_path = Path(args.voiceover)
     
     broll_paths = pipeline.download_broll(broll, out_dir)
-    final = pipeline.render_video(topic, broll_paths, voiceover_path, out_dir)
+    insights = pipeline.get_insights()
+    final = pipeline.render_video(topic, broll_paths, voiceover_path, out_dir, insights)
     _print_path("Final video", final)
     return 0
 
@@ -101,7 +103,8 @@ def run_command(args: argparse.Namespace, settings: Settings) -> int:
     write_json(run_dir / "signals.json", videos)
 
     print("Asking Gemini for the topic and script...")
-    topic = pipeline.ideate(videos)
+    insights = pipeline.get_insights()
+    topic = pipeline.ideate(videos, insights)
     write_json(run_dir / "topic.json", topic)
     (run_dir / "script.txt").write_text(topic.script, encoding="utf-8")
 
@@ -128,7 +131,7 @@ def run_command(args: argparse.Namespace, settings: Settings) -> int:
         raise RuntimeError("Failed to download any B-roll assets due to network timeouts. Please wait a moment and try again.")
 
     print("Rendering video locally with MoviePy...")
-    final_path = pipeline.render_video(topic, broll_paths, voiceover_path, run_dir)
+    final_path = pipeline.render_video(topic, broll_paths, voiceover_path, run_dir, insights)
     _print_path("Final video", final_path)
 
     if args.upload:

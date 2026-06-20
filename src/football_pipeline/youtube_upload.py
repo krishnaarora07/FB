@@ -6,7 +6,11 @@ from .config import Settings
 from .models import TopicPackage
 
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.force-ssl"]
+SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube.force-ssl",
+    "https://www.googleapis.com/auth/yt-analytics.readonly"
+]
 
 
 class YouTubeUploader:
@@ -27,6 +31,14 @@ class YouTubeUploader:
         token_file = self.settings.youtube_token_file
         if token_file.exists():
             creds = Credentials.from_authorized_user_file(str(token_file), SCOPES)
+            if creds and creds.expired and creds.refresh_token:
+                try:
+                    creds.refresh(Request())
+                except Exception as e:
+                    print(f"Token refresh failed: {e}")
+                    creds = None
+            if not creds or not creds.valid:
+                raise RuntimeError("TOKEN EXPIRED: Please run the pipeline locally (football-pipeline authenticate) to refresh your YouTube token and update the GitHub Secret.")
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())

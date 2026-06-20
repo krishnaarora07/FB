@@ -77,7 +77,7 @@ class Settings:
             affiliate_link_amazon_2=os.getenv("AFFILIATE_LINK_AMAZON_2"),
             affiliate_link_fanatics=os.getenv("AFFILIATE_LINK_FANATICS"),
             output_dir=Path(os.getenv("OUTPUT_DIR", "runs")),
-            script_seconds=_int("SCRIPT_SECONDS", 45),
+            script_seconds=_int("SCRIPT_SECONDS", 45),  # Fallback if Analytics AVD fails
             max_signals_for_gemini=_int("MAX_SIGNALS_FOR_GEMINI", 35),
         )
 
@@ -85,4 +85,3 @@ class Settings:
         if not value:
             raise RuntimeError(f"Missing {label}. Add it to .env or the environment.")
         return value
-

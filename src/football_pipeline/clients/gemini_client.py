@@ -27,7 +27,7 @@ class GeminiTopicClient:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    def choose_topic(self, videos: list[VideoSignal], trends: list[str]) -> TopicPackage:
+    def choose_topic(self, videos: list[VideoSignal], trends: list[str], insights=None) -> TopicPackage:
         # Retrieve API key, raise if missing
         api_key = self.settings.require(self.settings.gemini_api_key, "GEMINI_API_KEY or GOOGLE_API_KEY")
         try:
@@ -69,10 +69,37 @@ class GeminiTopicClient:
                             matching_item = next((item for item in last_3 if item.get("video_id") == sv.id), None)
                             title = matching_item.get("topic_title", sv.title) if matching_item else sv.title
                             analytics_str += f"- Topic: '{title}' -> Views: {sv.views}, Likes: {sv.likes}, Comments: {sv.comments}\n"
+                            
             except Exception as exc:
                 print(f"  Warning: Failed to fetch analytics feedback: {exc}")
 
-        prompt = self._build_prompt(videos, history, analytics_str, trends)
+        proven_hashtags = []
+        if upload_history_path.exists():
+            try:
+                upload_history = read_json(upload_history_path)
+                last_3 = upload_history[-3:]
+                for item in last_3:
+                    if "hashtags" in item:
+                        proven_hashtags.extend(item["hashtags"])
+            except Exception:
+                pass
+        proven_hashtags = list(dict.fromkeys(proven_hashtags))[:10]
+
+        target_length = self.settings.script_seconds
+        hook_pressure = "normal"
+        search_terms = []
+        viral_seeds = []
+        if insights:
+            if insights.avg_view_duration:
+                target_length = insights.avg_view_duration
+                if target_length < 10:
+                    hook_pressure = "red_alert"
+                elif target_length < 20:
+                    hook_pressure = "high"
+            search_terms = insights.search_terms
+            viral_seeds = insights.viral_seeds
+
+        prompt = self._build_prompt(videos, history, analytics_str, trends, target_length, hook_pressure, search_terms, viral_seeds, proven_hashtags)
         # Retry up to three times if Gemini returns an empty response, 429 rate limit, or low virality score
         for attempt in range(1, 4):
             try:
@@ -149,7 +176,7 @@ Score criteria:
         # Keep only the last 50 topics to avoid overflowing the prompt
         write_json(path, history[-50:])
 
-    def _build_prompt(self, videos: list[VideoSignal], history: list[str], analytics_str: str, trends: list[str]) -> str:
+    def _build_prompt(self, videos: list[VideoSignal], history: list[str], analytics_str: str, trends: list[str], target_length: int, hook_pressure: str, search_terms: list[str], viral_seeds: list[str], proven_hashtags: list[str]) -> str:
         signal_limit = self.settings.max_signals_for_gemini
         payload = [video.prompt_dict() for video in videos[:signal_limit]]
 
@@ -165,6 +192,31 @@ Score criteria:
             trends_str += "The following topics are actively spiking on Google right now. IF one of these overlaps with a YouTube trend, prioritize it highly:\n"
             for tr in trends:
                 trends_str += f"- {tr}\n"
+
+        if search_terms:
+            trends_str += "\n═══════════════════════════════════════════\nPROVEN YOUTUBE SEARCH TERMS\n═══════════════════════════════════════════\n"
+            trends_str += "These are the exact search terms viewers typed to find this channel. PRIORITIZE these heavily:\n"
+            for term in search_terms:
+                trends_str += f"- {term}\n"
+
+        if viral_seeds:
+            trends_str += "\n═══════════════════════════════════════════\nVIRAL SEEDS (DOUBLE DOWN!)\n═══════════════════════════════════════════\n"
+            trends_str += "The following topics PREVIOUSLY WENT VIRAL (>1000 views) on your channel. Explore adjacent angles, sequels, or related controversies on these themes. Double down on what works!\n"
+            for seed in viral_seeds:
+                trends_str += f"- {seed}\n"
+                
+        hook_instructions = "- Use short punchy sentences. Vary rhythm. Build tension. End with a bang."
+        if hook_pressure == "high":
+            hook_instructions = "🚨 HIGH PRESSURE: Your opening hook is failing. Viewers are swiping away. Your first sentence MUST be a single explosive statement that creates instant shock."
+        elif hook_pressure == "red_alert":
+            hook_instructions = "🚨 RED ALERT EMERGENCY: Viewers are swiping away in 3 seconds. Write the most aggressive, controversial opening sentence possible. Make it a question nobody can resist answering."
+
+        hashtag_instructions = '["#FIFAWorldCup2026", "#Football", "#Shorts", "... plus 10-15 highly optimized trending hashtags relevant to the topic"]'
+        if proven_hashtags:
+            hashtag_instructions = f'["#FIFAWorldCup2026", "#Football", "#Shorts", ... plus these proven high-performing tags: {", ".join(proven_hashtags)}]'
+
+        # Approximate words = target_length * 2.1 (avg speaking rate of 2.1 words/sec)
+        word_limit = int(target_length * 2.1)
 
         return f"""
 You are a world-class YouTube Shorts producer and editor with 10 years of experience creating viral football content. You have an obsessive eye for quality, perfect timing, and know exactly which raw footage will hook viewers in the first 0.5 seconds. Your videos regularly hit 1M+ views.
@@ -187,10 +239,10 @@ TOPIC SELECTION — Think like a 10M-subscriber YouTuber
 ═══════════════════════════════════════════
 SCRIPT — The "Perfect Loop" & Mystery Hooks
 ═══════════════════════════════════════════
-- STRICT LIMIT: Under 95 words. Non-negotiable. Every word must earn its place.
+- STRICT LIMIT: Under {word_limit} words (Target video length is {target_length}s). Non-negotiable. Every word must earn its place.
 - THE PERFECT LOOP HACK: The final 5 words of your script MUST grammatically connect directly back into the first 5 words of the script so it forms an infinite looping sentence. Example: If the script starts with "Cristiano Ronaldo is finally breaking his silence...", it must end with "...and that is exactly why".
 - THE OPEN LOOP HACK: Occasionally (about 50% of the time), start the script with a massive, controversial, unanswered question, and DO NOT answer it until the final 5 seconds.
-- Use short punchy sentences. Vary rhythm. Build tension. End with a bang.
+{hook_instructions}
 - NO filler words. NO "in this video". NO "don't forget to like and subscribe".
 
 ═══════════════════════════════════════════
@@ -206,11 +258,11 @@ Return this exact JSON shape with NO extra text before or after:
 {{
   "topic_title": "short topic name (max 8 words)",
   "angle": "one electrifying sentence explaining why this topic is unmissable right now",
-  "script": "voiceover script strictly under 95 words — punchy, dynamic, emotional",
+  "script": "voiceover script strictly under {word_limit} words — punchy, dynamic, emotional",
   "broll_queries": ["sad soccer fan crying", "football player scoring goal slow motion", "angry football manager shouting", "stadium crowd cheering crazy"],
   "youtube_title": "viral upload title under 95 chars with an emoji that creates FOMO",
   "youtube_description": "2-3 explosive sentences that hook readers, naturally weave in highly-searched SEO keywords (like specific player names, teams, and 'Football Shorts'), and end with a controversial question.",
-  "hashtags": ["#FIFAWorldCup2026", "#Football", "#Shorts", "... plus 10-15 highly optimized trending hashtags relevant to the topic to maximize algorithm discovery"]
+  "hashtags": {hashtag_instructions}
 }}
 
 ═══════════════════════════════════════════

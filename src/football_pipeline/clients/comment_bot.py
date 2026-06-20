@@ -33,11 +33,23 @@ class CommentBotClient:
             raise RuntimeError("Install Google upload dependencies with: pip install -e .") from exc
             
         # Authenticate with YouTube
-        SCOPES = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.force-ssl"]
+        SCOPES = [
+            "https://www.googleapis.com/auth/youtube.upload",
+            "https://www.googleapis.com/auth/youtube.force-ssl",
+            "https://www.googleapis.com/auth/yt-analytics.readonly"
+        ]
         creds = None
         token_file = self.settings.youtube_token_file
         if token_file.exists():
             creds = Credentials.from_authorized_user_file(str(token_file), SCOPES)
+            if creds and creds.expired and creds.refresh_token:
+                from google.auth.transport.requests import Request
+                try:
+                    creds.refresh(Request())
+                except Exception:
+                    creds = None
+            if not creds or not creds.valid:
+                raise RuntimeError("TOKEN EXPIRED: Please run the pipeline locally (football-pipeline authenticate) to refresh your YouTube token and update the GitHub Secret.")
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())

@@ -87,8 +87,18 @@ def build_moviepy_edit(
     voiceover_path: Path,
     subtitles_path: Path,
     output_path: Path,
+    insights=None
 ) -> Path:
-    """Renders the video locally using MoviePy, then burns subtitles using FFmpeg."""
+    """Combine voiceover, subtitles, and B-roll into a final vertical video."""
+    
+    # --- Dynamic B-Roll Pacing ---
+    target_duration = 2.5
+    if insights and insights.avg_view_duration:
+        if insights.avg_view_duration < 15:
+            target_duration = 1.2 # Ultra-fast pacing for low retention
+        elif insights.avg_view_duration <= 25:
+            target_duration = 1.8 # Fast pacing
+
     if not broll_paths:
         raise ValueError("At least one B-roll asset is required.")
 
@@ -97,7 +107,7 @@ def build_moviepy_edit(
     total_seconds = audio.duration
 
     # ── 2. Prepare B-roll videos (or Parallax Images) ─────────────────────────
-    clip_length = max(4.0, total_seconds / len(broll_paths))
+    clip_length = max(target_duration, total_seconds / len(broll_paths))
     video_clips = []
     cursor = 0.0
 
@@ -248,6 +258,9 @@ def build_moviepy_edit(
             sat = sat.fx(vfx.loop, duration=total_seconds)
             
         # Crop/resize to 1080x960
+        # Use the dynamically calculated target_duration
+        if sat.duration > target_duration:
+            sat = sat.subclip(0, target_duration)
         sat = sat.resize(width=1080)
         if sat.h > 960:
             y_center = sat.h / 2

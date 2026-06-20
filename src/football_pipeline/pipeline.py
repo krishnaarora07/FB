@@ -25,10 +25,14 @@ class FootballPipeline:
     def collect(self) -> list[VideoSignal]:
         return YouTubeDiscoveryClient(self.settings).collect()
 
-    def ideate(self, videos: list[VideoSignal]) -> TopicPackage:
+    def get_insights(self):
+        from .clients.analytics_client import YouTubeAnalyticsClient
+        return YouTubeAnalyticsClient(self.settings).get_insights()
+
+    def ideate(self, videos: list[VideoSignal], insights=None) -> TopicPackage:
         from .clients.trends_client import GoogleTrendsClient
         trends = GoogleTrendsClient(self.settings).get_football_trends()
-        return GeminiTopicClient(self.settings).choose_topic(videos, trends)
+        return GeminiTopicClient(self.settings).choose_topic(videos, trends, insights)
 
     def fetch_broll(self, topic: TopicPackage) -> list[BrollAsset]:
         print("  Fetching high-quality moving video clips from Tenor API...")
@@ -67,10 +71,10 @@ class FootballPipeline:
                 
         return paths
 
-    def render_video(self, topic: TopicPackage, broll_paths: list[Path], voiceover_path: Path, run_dir: Path) -> Path:
+    def render_video(self, topic: TopicPackage, broll_paths: list[Path], voiceover_path: Path, run_dir: Path, insights=None) -> Path:
         output_path = run_dir / "final.mp4"
         subtitles_path = voiceover_path.with_suffix('.words.json')
-        return build_moviepy_edit(topic, broll_paths, voiceover_path, subtitles_path, output_path)
+        return build_moviepy_edit(topic, broll_paths, voiceover_path, subtitles_path, output_path, insights)
 
     def upload_to_youtube(self, video_path: Path, topic: TopicPackage) -> str:
         video_id, scheduled_for = YouTubeUploader(self.settings).upload(video_path, topic)
@@ -89,7 +93,8 @@ class FootballPipeline:
             "video_id": video_id,
             "topic_title": topic.topic_title,
             "youtube_title": topic.youtube_title,
-            "scheduled_for": scheduled_for
+            "scheduled_for": scheduled_for,
+            "hashtags": topic.hashtags
         })
         history_path.write_text(json.dumps(history[-50:], indent=2, ensure_ascii=False), encoding="utf-8")
         
