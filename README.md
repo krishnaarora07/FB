@@ -63,6 +63,13 @@ We ripped out the DuckDuckGo scraper and integrated the official **Google Custom
 ### Phase 7: CI/CD & Storage Optimization
 Because we strapped three massive AI models (Chatterbox, Whisper, and Rembg) into the pipeline, downloading them every run would take hours and waste bandwidth. We engineered the GitHub Actions `daily_pipeline.yml` to utilize GitHub's internal cache servers. The gigabytes of AI models are stored permanently in the cache, allowing the heavy AI pipeline to run 100% for free inside the standard GitHub Actions limits.
 
+### Phase 8: Analytics "God Mode" & Dynamic Pacing
+A YouTube Short is only as good as its retention graph. We integrated the **YouTube Analytics API v2** to pull real-time channel data (Average View Duration, top Search Terms, and 1000+ view Viral Seeds) and feed it directly into Gemini. 
+Not only does Gemini now adapt its scriptwriting based on audience retention, but the video engine dynamically adjusts the pacing of the visual edits (b-roll switching speed) based on the specific retention pressure of the channel. It became a true, self-learning feedback loop.
+
+### Phase 9: Global Prime-Time Scheduling & Breaking News Fast-Track
+To maximize global reach without cannibalizing views, we built an advanced algorithmic scheduler. The pipeline queries YouTube Analytics to calculate the specific best-performing days of the week for the channel. It then automatically targets peak time blocks across three major regions (India at 15:00 UTC, UK at 18:00 UTC, and US at 20:00 UTC). Furthermore, if Gemini detects a massive "breaking news" story (e.g. a huge injury or transfer), it triggers a fast-track override, skipping the queue and publishing the video instantly.
+
 ---
 
 ## 🚀 Setup & Deployment Guide
