@@ -97,12 +97,12 @@ def build_moviepy_edit(
     """Combine voiceover, subtitles, and B-roll into a final vertical video."""
     
     # --- Dynamic B-Roll Pacing ---
-    target_duration = 2.5
+    target_duration = 1.8 # Lower baseline from 2.5 to 1.8
     if insights and insights.avg_view_duration:
         if insights.avg_view_duration < 15:
-            target_duration = 1.2 # Ultra-fast pacing for low retention
+            target_duration = 1.0 # Hyper-fast pacing for low retention
         elif insights.avg_view_duration <= 25:
-            target_duration = 1.8 # Fast pacing
+            target_duration = 1.4 # Fast pacing
 
     if not broll_paths:
         raise ValueError("At least one B-roll asset is required.")

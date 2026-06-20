@@ -91,13 +91,15 @@ class GeminiTopicClient:
         viral_seeds = []
         if insights:
             if insights.avg_view_duration:
-                target_length = insights.avg_view_duration
+                target_length = min(insights.avg_view_duration, 20) # FORCE micro-scripts to pass seed audience
                 if target_length < 10:
                     hook_pressure = "red_alert"
                 elif target_length < 20:
                     hook_pressure = "high"
             search_terms = insights.search_terms
             viral_seeds = insights.viral_seeds
+        else:
+            target_length = 20 # Default to 20s if no analytics available
 
         prompt = self._build_prompt(videos, history, analytics_str, trends, target_length, hook_pressure, search_terms, viral_seeds, proven_hashtags)
         # Retry up to three times if Gemini returns an empty response, 429 rate limit, or low virality score
@@ -228,12 +230,12 @@ Today is {date.today().isoformat()}.
 Your task is to pick ONE trending football topic connected to FIFA World Cup 2026 and produce a complete, ready-to-publish short-form video package. Think like the best football content creator on the internet.
 
 ═══════════════════════════════════════════
-TOPIC SELECTION — Think like a 10M-subscriber YouTuber
+TOPIC SELECTION — The "Mega-Star" Mandate
 ═══════════════════════════════════════════
 - Act as a master YouTube strategist. Your goal is MAXIMIZING VIEWS, RETENTION, and ENGAGEMENT.
 - Analyze the provided Trend Signals. 
-- Rule 1: If there is a MASSIVE breaking news story (a huge transfer, a World Cup upset, a massive injury), pick that.
-- Rule 2: If it is a slow news day, IGNORE BORING STATS. Instead, explicitly hunt for "Micro-Drama" — referee mistakes, intense rivalries, savage press conference quotes, or locker-room fights. Drama triggers clicks.
+- Rule 1: STRICT MEGA-STAR BIAS. Videos about abstract concepts or stadiums get ZERO views. You MUST pick topics revolving around mega-stars (Messi, Ronaldo, Yamal, Mbappe, Zlatan, Neymar).
+- Rule 2: Hunt for "Micro-Drama" — referee mistakes, intense rivalries, savage press conference quotes, or locker-room fights. Drama triggers clicks.
 - The topic MUST be directly connected to FIFA World Cup 2026.
 
 ═══════════════════════════════════════════
