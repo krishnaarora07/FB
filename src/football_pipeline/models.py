@@ -83,6 +83,7 @@ class TopicPackage:
     youtube_description: str
     hashtags: list[str]
     is_breaking_news: bool
+    visual_segments: list[dict] = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "TopicPackage":
@@ -95,6 +96,7 @@ class TopicPackage:
             youtube_description=str(data.get("youtube_description") or ""),
             hashtags=[str(item) for item in data.get("hashtags", [])][:12],
             is_breaking_news=bool(data.get("is_breaking_news", False)),
+            visual_segments=data.get("visual_segments") or []
         )
 
 

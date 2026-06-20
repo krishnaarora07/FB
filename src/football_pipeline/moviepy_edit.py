@@ -112,7 +112,10 @@ def build_moviepy_edit(
     total_seconds = audio.duration
 
     # ── 2. Prepare B-roll videos (or Parallax Images) ─────────────────────────
-    clip_length = max(target_duration, total_seconds / len(broll_paths))
+    total_chars = 0
+    if hasattr(topic, "visual_segments") and topic.visual_segments:
+        total_chars = sum(len(seg.get("text", "")) for seg in topic.visual_segments)
+
     video_clips = []
     cursor = 0.0
 
@@ -165,9 +168,18 @@ def build_moviepy_edit(
         
         return CompositeVideoClip([bg_clip, fg_clip], size=(1080, 960)).set_duration(length)
 
-    for broll_path in broll_paths:
+    for idx, broll_path in enumerate(broll_paths):
         remaining = max(total_seconds - cursor, 0)
-        length = min(clip_length, remaining) if remaining else clip_length
+        if total_chars > 0 and idx < len(topic.visual_segments):
+            char_count = len(topic.visual_segments[idx].get("text", ""))
+            target_clip_length = total_seconds * (char_count / total_chars)
+        else:
+            target_clip_length = max(target_duration, total_seconds / len(broll_paths))
+            
+        length = min(target_clip_length, remaining) if remaining else target_clip_length
+        if idx == len(broll_paths) - 1:
+            length = remaining
+            
         if length <= 0:
             break
 

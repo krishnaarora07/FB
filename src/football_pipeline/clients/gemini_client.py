@@ -129,7 +129,11 @@ class GeminiTopicClient:
                     pass
 
             if topic_text:
-                topic = TopicPackage.from_dict(_parse_jsonish(topic_text))
+                data = _parse_jsonish(topic_text)
+                if "visual_segments" in data:
+                    data["script"] = " ".join([seg.get("text", "") for seg in data["visual_segments"]])
+                    data["broll_queries"] = [seg.get("broll_query", "") for seg in data["visual_segments"]]
+                topic = TopicPackage.from_dict(data)
                 
                 # --- Virality Predictor Quality Gate ---
                 score_prompt = f"""You are a brutal YouTube shorts critic. Rate this script out of 10 for virality.
@@ -250,9 +254,9 @@ SCRIPT — The "Perfect Loop" & Mystery Hooks
 ═══════════════════════════════════════════
 B-ROLL SELECTION — Think like a stock video search engine
 ═══════════════════════════════════════════
-You MUST generate 10 to 15 highly specific search queries to find the perfect B-roll on Google Images or Pexels.
-Because we use hyper-fast TikTok pacing (images change every 1 second), if you do not provide at least 10-15 queries, the visual edits will be too slow and out of sync with the script.
-Describe the VISUAL ACTION you want to see on screen (e.g. "angry football player shouting").
+You MUST generate EXACTLY ONE visual segment for every single sentence in your script.
+For each sentence, describe the VISUAL ACTION you want to see on screen (e.g. "angry football player shouting").
+This 1-to-1 mapping is critical for perfectly synchronizing the images to the TTS audio.
 
 ═══════════════════════════════════════════
 OUTPUT FORMAT — JSON only, zero markdown
@@ -261,8 +265,10 @@ Return this exact JSON shape with NO extra text before or after:
 {{
   "topic_title": "short topic name (max 8 words)",
   "angle": "one electrifying sentence explaining why this topic is unmissable right now",
-  "script": "voiceover script strictly under {word_limit} words — punchy, dynamic, emotional",
-  "broll_queries": ["sad soccer fan crying", "football player scoring goal slow motion", "angry football manager shouting", "stadium crowd cheering crazy"],
+  "visual_segments": [
+    {"text": "First sentence of the script...", "broll_query": "angry football manager shouting"},
+    {"text": "Second sentence of the script...", "broll_query": "sad soccer fan crying"}
+  ],
   "youtube_title": "viral upload title under 95 chars with an emoji that creates FOMO",
   "youtube_description": "2-3 explosive sentences that hook readers, naturally weave in highly-searched SEO keywords (like specific player names, teams, and 'Football Shorts'), and end with a controversial question.",
   "hashtags": {hashtag_instructions},
