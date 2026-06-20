@@ -250,7 +250,8 @@ SCRIPT — The "Perfect Loop" & Mystery Hooks
 ═══════════════════════════════════════════
 B-ROLL SELECTION — Think like a stock video search engine
 ═══════════════════════════════════════════
-You must generate 4-5 highly specific search queries to find the perfect B-roll on Google Images or Pexels.
+You MUST generate 10 to 15 highly specific search queries to find the perfect B-roll on Google Images or Pexels.
+Because we use hyper-fast TikTok pacing (images change every 1 second), if you do not provide at least 10-15 queries, the visual edits will be too slow and out of sync with the script.
 Describe the VISUAL ACTION you want to see on screen (e.g. "angry football player shouting").
 
 ═══════════════════════════════════════════

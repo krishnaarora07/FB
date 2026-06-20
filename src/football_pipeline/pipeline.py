@@ -35,9 +35,9 @@ class FootballPipeline:
         return GeminiTopicClient(self.settings).choose_topic(videos, trends, insights)
 
     def fetch_broll(self, topic: TopicPackage) -> list[BrollAsset]:
-        print("  Fetching high-quality moving video clips from Tenor API...")
-        from .clients.tenor_search_client import TenorSearchClient
-        return TenorSearchClient(self.settings).search_videos(topic.broll_queries)
+        print("  Fetching high-resolution images from Google Custom Search...")
+        from .clients.image_search_client import ImageSearchClient
+        return ImageSearchClient(self.settings).search_images(topic.broll_queries)
 
     def generate_voiceover(self, topic: TopicPackage, run_dir: Path) -> Path:
         return ChatterboxTtsClient(self.settings).create_voiceover(topic.script, run_dir / "voiceover.wav")
