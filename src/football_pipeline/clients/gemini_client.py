@@ -267,8 +267,8 @@ Return this exact JSON shape with NO extra text before or after:
   "topic_title": "short topic name (max 8 words)",
   "angle": "one electrifying sentence explaining why this topic is unmissable right now",
   "visual_segments": [
-    {"text": "First sentence of the script...", "broll_query": "angry football manager shouting", "asset_type": "image"},
-    {"text": "Second sentence of the script...", "broll_query": "sad soccer fan crying", "asset_type": "gif"}
+    {{"text": "First sentence of the script...", "broll_query": "angry football manager shouting", "asset_type": "image"}},
+    {{"text": "Second sentence of the script...", "broll_query": "sad soccer fan crying", "asset_type": "gif"}}
   ],
   "youtube_title": "viral upload title under 95 chars with an emoji that creates FOMO",
   "youtube_description": "2-3 explosive sentences that hook readers, naturally weave in highly-searched SEO keywords (like specific player names, teams, and 'Football Shorts'), and end with a controversial question.",
