@@ -24,7 +24,7 @@ class ImageSearchClient:
             if google_api_key and google_cx:
                 try:
                     print(f"  Searching Google Images for: '{query}'...")
-                    url = f"https://www.googleapis.com/customsearch/v1?q={urllib.parse.quote(query)}&key={google_api_key}&cx={google_cx}&searchType=image&num=3"
+                    url = f"https://www.googleapis.com/customsearch/v1?q={urllib.parse.quote(query)}&key={google_api_key}&cx={google_cx}&searchType=image&imgSize=large&num=3"
                     resp = requests.get(url, timeout=10)
                     resp.raise_for_status()
                     

@@ -49,9 +49,11 @@ class FootballPipeline:
             # Attempt to extract original extension, default to jpg
             ext = ".mp4" if asset.source == "tenor" else ".jpg"
             if "." in asset.url.split("/")[-1]:
-                potential_ext = "." + asset.url.split("/")[-1].split(".")[1][:3]
-                if potential_ext.lower() in [".jpg", ".png", ".jpeg", ".webp", ".mp4"]:
-                    ext = potential_ext.lower()
+                parsed = asset.url.split("/")[-1].split("?")[0]
+                if "." in parsed:
+                    potential_ext = "." + parsed.split(".")[-1].lower()
+                    if potential_ext in [".jpg", ".png", ".jpeg", ".webp", ".mp4"]:
+                        ext = potential_ext
                     
             output = run_dir / f"broll_{i}{ext}"
             print(f"  Downloading asset {asset.id} -> {output.name}...")
