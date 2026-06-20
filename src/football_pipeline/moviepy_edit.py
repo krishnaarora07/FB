@@ -32,9 +32,9 @@ def _build_ass(words: list[dict], ass_path: Path) -> None:
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, "
         "Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        # White bold text, black outline (size 3), small drop-shadow (1), centred (MarginV=960 for split screen)
+        # White bold text, black outline (size 3), small drop-shadow (1), bottom-third (MarginV=250)
         "Style: Default,DejaVu Sans,68,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,"
-        "-1,0,0,0,100,100,0,0,1,3,1,2,10,10,960,1\n"
+        "-1,0,0,0,100,100,0,0,1,3,1,2,10,10,250,1\n"
         "\n"
         "[Events]\n"
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
@@ -126,8 +126,8 @@ def build_moviepy_edit(
         input_img = Image.open(img_path).convert("RGBA")
         fg_img = remove(input_img)
 
-        # 2. Crop to 9:8 aspect ratio (top half of 9:16)
-        target_ratio = 1080 / 960.0
+        # 2. Crop to 9:16 aspect ratio (Full Vertical)
+        target_ratio = 1080 / 1920.0
         w, h = input_img.size
         img_ratio = w / h
         
@@ -142,9 +142,9 @@ def build_moviepy_edit(
             bg_crop = input_img.crop((0, top, w, top + new_h))
             fg_crop = fg_img.crop((0, top, w, top + new_h))
             
-        bg_img = bg_crop.resize((1080, 960), Image.Resampling.LANCZOS)
+        bg_img = bg_crop.resize((1080, 1920), Image.Resampling.LANCZOS)
         bg_img = bg_img.filter(ImageFilter.GaussianBlur(radius=15))
-        fg_img = fg_crop.resize((1080, 960), Image.Resampling.LANCZOS)
+        fg_img = fg_crop.resize((1080, 1920), Image.Resampling.LANCZOS)
         
         # 3. Animate with MoviePy
         # Zoom out slowly for background
@@ -161,9 +161,9 @@ def build_moviepy_edit(
         fg_clip = ImageClip(np.array(fg_img)).set_duration(length)
         fg_clip = fg_clip.resize(resize_fg)
         # Force exact dimension with transparent padding to bypass CompositeVideoClip positioning bugs
-        fg_clip = fg_clip.on_color(size=(1080, 960), color=(0,0,0), col_opacity=0, pos="center")
+        fg_clip = fg_clip.on_color(size=(1080, 1920), color=(0,0,0), col_opacity=0, pos="center")
         
-        return CompositeVideoClip([bg_clip, fg_clip], size=(1080, 960)).set_duration(length)
+        return CompositeVideoClip([bg_clip, fg_clip], size=(1080, 1920)).set_duration(length)
 
     for broll_path in broll_paths:
         remaining = max(total_seconds - cursor, 0)
@@ -193,36 +193,36 @@ def build_moviepy_edit(
                 raw_fg = raw_fg.subclip(start_t, start_t + length)
                 raw_bg = raw_bg.subclip(start_t, start_t + length)
                 
-            # Create Foreground (original ratio, fit inside 1080x960)
+            # Create Foreground (original ratio, fit inside 1080x1920)
             fg_clip = raw_fg.resize(width=1080)
-            if fg_clip.h > 960:
-                fg_clip = fg_clip.resize(height=960)
+            if fg_clip.h > 1920:
+                fg_clip = fg_clip.resize(height=1920)
                 
             # Create Background (blown up and blurred fast)
-            bg_clip = raw_bg.resize(height=960)
+            bg_clip = raw_bg.resize(height=1920)
             if bg_clip.w < 1080:
                 bg_clip = bg_clip.resize(width=1080)
             
             x_center = bg_clip.w / 2
             y_center = bg_clip.h / 2
-            bg_clip = bg_clip.crop(x1=x_center - 540, y1=y_center - 480, x2=x_center + 540, y2=y_center + 480)
+            bg_clip = bg_clip.crop(x1=x_center - 540, y1=y_center - 960, x2=x_center + 540, y2=y_center + 960)
             
             def blur_frame(image):
                 from PIL import Image, ImageFilter
                 import numpy as np
                 img = Image.fromarray(image).convert("RGB")
-                img.thumbnail((270, 240))
+                img.thumbnail((270, 480))
                 img = img.filter(ImageFilter.GaussianBlur(radius=5))
-                img = img.resize((1080, 960), Image.Resampling.BILINEAR)
+                img = img.resize((1080, 1920), Image.Resampling.BILINEAR)
                 return np.array(img)
                 
             bg_clip = bg_clip.fl_image(blur_frame)
             
             # Force exact dimension with transparent padding to bypass CompositeVideoClip positioning bugs
-            fg_clip = fg_clip.on_color(size=(1080, 960), color=(0,0,0), col_opacity=0, pos="center")
+            fg_clip = fg_clip.on_color(size=(1080, 1920), color=(0,0,0), col_opacity=0, pos="center")
             
             from moviepy.editor import CompositeVideoClip
-            clip = CompositeVideoClip([bg_clip, fg_clip], size=(1080, 960)).set_duration(length)
+            clip = CompositeVideoClip([bg_clip, fg_clip], size=(1080, 1920)).set_duration(length)
 
         if cursor > 0:
             import random
@@ -235,7 +235,7 @@ def build_moviepy_edit(
             elif t_type == "dip_to_black":
                 clip = clip.fadein(0.3)
             elif t_type == "flash_white":
-                flash = ColorClip(size=(1080, 960), color=(255,255,255)).set_duration(0.15)
+                flash = ColorClip(size=(1080, 1920), color=(255,255,255)).set_duration(0.15)
                 flash = flash.crossfadeout(0.15)
                 clip = CompositeVideoClip([clip, flash.set_position("center")])
 
@@ -245,35 +245,7 @@ def build_moviepy_edit(
             break
 
     top_video = concatenate_videoclips(video_clips, method="compose")
-    top_video = top_video.set_duration(total_seconds).set_position(("center", "top"))
-
-    # ── 2.5. Inject Satisfying Video (Dual-Stimulus) ────────────────────────
-    import random
-    from moviepy.editor import CompositeVideoClip
-    
-    bottom_clip = None
-    satisfying_path = Path("assets/satisfying.mp4")
-    if satisfying_path.exists():
-        sat = VideoFileClip(str(satisfying_path)).without_audio()
-        if sat.duration > total_seconds:
-            start_t = random.uniform(0, sat.duration - total_seconds)
-            sat = sat.subclip(start_t, start_t + total_seconds)
-        else:
-            import moviepy.video.fx.all as vfx
-            sat = sat.fx(vfx.loop, duration=total_seconds)
-            
-        # Crop/resize to 1080x960
-        # Use the dynamically calculated target_duration
-        if sat.duration > target_duration:
-            sat = sat.subclip(0, target_duration)
-        sat = sat.resize(width=1080)
-        if sat.h > 960:
-            y_center = sat.h / 2
-            sat = sat.crop(x1=0, y1=y_center - 480, x2=1080, y2=y_center + 480)
-        else:
-            sat = sat.resize(width=1080, height=960)
-            
-        bottom_clip = sat.set_position(("center", "bottom"))
+    top_video = top_video.set_duration(total_seconds).set_position("center")
     
     # ── 2.6. Build 1-Frame Thumbnail Injection ───────────────────────────────
     # We create a 0.1s super-saturated frame of the very first frame to trick the algorithm thumbnail
@@ -293,8 +265,6 @@ def build_moviepy_edit(
 
     # Compose layers
     layers = [top_video]
-    if bottom_clip:
-        layers.append(bottom_clip)
     if thumb_clip:
         layers.append(thumb_clip)
         
