@@ -15,6 +15,7 @@ class AnalyticsInsights:
     avg_view_duration: int | None
     search_terms: list[str]
     viral_seeds: list[str]
+    best_days: list[int]
 
 
 class YouTubeAnalyticsClient:
@@ -45,6 +46,7 @@ class YouTubeAnalyticsClient:
         avg_view_duration = None
         search_terms = []
         viral_seeds = []
+        best_days = []
         
         # 1. Fetch Viral Seeds using Data API (real-time views)
         try:
@@ -75,7 +77,7 @@ class YouTubeAnalyticsClient:
                 
                 # YouTube Analytics data is typically delayed by ~2 days
                 end_date = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y-%m-%d")
-                start_date = (datetime.now(timezone.utc) - timedelta(days=9)).strftime("%Y-%m-%d")
+                start_date = (datetime.now(timezone.utc) - timedelta(days=32)).strftime("%Y-%m-%d")
                 
                 # AVD
                 res = yta.reports().query(
@@ -87,6 +89,27 @@ class YouTubeAnalyticsClient:
                 
                 if res.get("rows") and len(res["rows"]) > 0:
                     avg_view_duration = int(res["rows"][0][0])
+                    
+                # Best Days Calculation
+                try:
+                    res_days = yta.reports().query(
+                        ids="channel==MINE",
+                        startDate=start_date,
+                        endDate=end_date,
+                        metrics="views",
+                        dimensions="day"
+                    ).execute()
+                    
+                    if res_days.get("rows"):
+                        day_views = {i: 0 for i in range(7)}
+                        for row in res_days["rows"]:
+                            dt = datetime.strptime(row[0], "%Y-%m-%d")
+                            day_views[dt.weekday()] += int(row[1])
+                        
+                        sorted_days = sorted(day_views.items(), key=lambda x: x[1], reverse=True)
+                        best_days = [day for day, views in sorted_days[:2]]
+                except Exception as e:
+                    print(f"  Warning: Failed to calculate best days: {e}")
                     
                 # Search Terms
                 res_search = yta.reports().query(
@@ -109,5 +132,6 @@ class YouTubeAnalyticsClient:
         return AnalyticsInsights(
             avg_view_duration=avg_view_duration,
             search_terms=search_terms,
-            viral_seeds=list(set(viral_seeds))
+            viral_seeds=list(set(viral_seeds)),
+            best_days=best_days
         )

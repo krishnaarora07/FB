@@ -76,8 +76,9 @@ class FootballPipeline:
         subtitles_path = voiceover_path.with_suffix('.words.json')
         return build_moviepy_edit(topic, broll_paths, voiceover_path, subtitles_path, output_path, insights)
 
-    def upload_to_youtube(self, video_path: Path, topic: TopicPackage) -> str:
-        video_id, scheduled_for = YouTubeUploader(self.settings).upload(video_path, topic)
+    def upload_to_youtube(self, video_path: Path, topic: TopicPackage, insights=None) -> str:
+        from .youtube_upload import YouTubeUploader
+        video_id, scheduled_for = YouTubeUploader(self.settings).upload(video_path, topic, insights)
         
         # Save to upload_history.json for Analytics Feedback Loop
         history_path = Path("upload_history.json")

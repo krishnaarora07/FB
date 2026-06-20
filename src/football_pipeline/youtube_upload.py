@@ -17,7 +17,7 @@ class YouTubeUploader:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    def upload(self, video_path: Path, topic: TopicPackage) -> tuple[str, str]:
+    def upload(self, video_path: Path, topic: TopicPackage, insights=None) -> tuple[str, str]:
         try:
             from google.auth.transport.requests import Request
             from google.oauth2.credentials import Credentials
@@ -59,9 +59,34 @@ class YouTubeUploader:
         import json
 
         now = datetime.now(timezone.utc)
-        publish_dt = now.replace(hour=18, minute=0, second=0, microsecond=0)
-        if now > publish_dt:
-            publish_dt += timedelta(days=1)
+        
+        if getattr(topic, "is_breaking_news", False):
+            publish_dt = now + timedelta(minutes=10)
+        else:
+            prime_blocks = [15, 18, 20]
+            target_date = now.date()
+            if now.hour >= max(prime_blocks):
+                target_date += timedelta(days=1)
+                
+            best_days = []
+            if insights and getattr(insights, "best_days", None):
+                best_days = insights.best_days
+            if not best_days:
+                best_days = [5, 6]
+                
+            days_ahead = 0
+            while (target_date + timedelta(days=days_ahead)).weekday() not in best_days and days_ahead < 7:
+                days_ahead += 1
+                
+            target_date += timedelta(days=days_ahead)
+            
+            import random
+            target_hour = random.choice(prime_blocks)
+            
+            publish_dt = datetime(
+                target_date.year, target_date.month, target_date.day, 
+                target_hour, 0, 0, tzinfo=timezone.utc
+            )
             
         history_path = Path("upload_history.json")
         last_scheduled = None

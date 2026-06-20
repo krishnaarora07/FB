@@ -262,7 +262,8 @@ Return this exact JSON shape with NO extra text before or after:
   "broll_queries": ["sad soccer fan crying", "football player scoring goal slow motion", "angry football manager shouting", "stadium crowd cheering crazy"],
   "youtube_title": "viral upload title under 95 chars with an emoji that creates FOMO",
   "youtube_description": "2-3 explosive sentences that hook readers, naturally weave in highly-searched SEO keywords (like specific player names, teams, and 'Football Shorts'), and end with a controversial question.",
-  "hashtags": {hashtag_instructions}
+  "hashtags": {hashtag_instructions},
+  "is_breaking_news": false // Set to true ONLY if the topic is a massive, breaking event from the last 24 hours (e.g., major injury, massive transfer, live controversy). Otherwise false.
 }}
 
 ═══════════════════════════════════════════

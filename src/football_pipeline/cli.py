@@ -160,7 +160,7 @@ def run_command(args: argparse.Namespace, settings: Settings) -> int:
         if not final_path:
             raise RuntimeError("Cannot upload because no final video file was downloaded.")
         print("Uploading to YouTube...")
-        youtube_url = pipeline.upload_to_youtube(final_path, topic)
+        youtube_url = pipeline.upload_to_youtube(final_path, topic, insights)
         print(youtube_url)
         
         if args.cleanup:
