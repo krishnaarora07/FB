@@ -72,9 +72,7 @@ jobs:
           printf 'YOUTUBE_API_KEY=%s\n' '${{ secrets.YOUTUBE_API_KEY }}' > .env
           printf 'GEMINI_API_KEY=%s\n' '${{ secrets.GEMINI_API_KEY }}' >> .env
           printf 'GEMINI_MODEL=gemini-3.5-flash\n' >> .env
-          printf 'PEXELS_API_KEY=%s\n' '${{ secrets.PEXELS_API_KEY }}' >> .env
-          printf 'GOOGLE_SEARCH_API_KEY=%s\n' '${{ secrets.GOOGLE_SEARCH_API_KEY }}' >> .env
-          printf 'GOOGLE_SEARCH_ENGINE_ID=%s\n' '${{ secrets.GOOGLE_SEARCH_ENGINE_ID }}' >> .env
+          printf 'GIPHY_API_KEY=%s\n' '${{ secrets.GIPHY_API_KEY }}' >> .env
           printf 'AFFILIATE_LINK_AMAZON=%s\n' '${{ secrets.AFFILIATE_LINK_AMAZON }}' >> .env
           printf 'AFFILIATE_LINK_AMAZON_2=%s\n' '${{ secrets.AFFILIATE_LINK_AMAZON_2 }}' >> .env
           printf 'AFFILIATE_LINK_FANATICS=%s\n' '${{ secrets.AFFILIATE_LINK_FANATICS }}' >> .env

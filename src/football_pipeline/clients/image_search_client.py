@@ -14,82 +14,43 @@ class ImageSearchClient:
         """Search Google Images and return them as BrollAsset objects."""
         assets = []
         
-        # Load Google API Keys (will fail gracefully to Pexels if missing)
-        google_api_key = self.settings.google_search_api_key
-        if google_api_key:
-            google_api_key = google_api_key.strip(' "\'\r\n\t')
+        giphy_api_key = self.settings.giphy_api_key
+        if giphy_api_key:
+            giphy_api_key = giphy_api_key.strip(' "\'\r\n\t')
+        else:
+            print("  WARNING: GIPHY_API_KEY is missing from environment. B-roll generation will fail.")
             
-        google_cx = self.settings.google_search_engine_id
-        if google_cx:
-            google_cx = google_cx.strip(' "\'\r\n\t')
-        
-        # Sanitize Google CX in case the user pasted the full HTML <script> snippet
-        if google_cx and "cx=" in google_cx:
-            import re
-            match = re.search(r'cx=([a-zA-Z0-9]+)', google_cx)
-            if match:
-                google_cx = match.group(1)
-        
         for idx, query in enumerate(queries):
             asset = None
             
-            if google_api_key and google_cx:
+            if giphy_api_key:
                 try:
-                    print(f"  Searching Google Images for: '{query}'...")
-                    url = f"https://www.googleapis.com/customsearch/v1?q={urllib.parse.quote(query)}&key={google_api_key}&cx={google_cx}&searchType=image&imgSize=large&num=3"
+                    clean_query = query.replace("portrait", "").replace("vertical", "").strip()
+                    print(f"  Searching Giphy for: '{clean_query}'...")
+                    
+                    url = f"https://api.giphy.com/v1/gifs/search?api_key={giphy_api_key}&q={urllib.parse.quote(clean_query)}&limit=1&rating=pg-13"
                     resp = requests.get(url, timeout=10)
                     if not resp.ok:
-                        print(f"  Google API error body: {resp.text}")
+                        print(f"  Giphy API error body: {resp.text}")
                     resp.raise_for_status()
                     
-                    results = resp.json().get("items", [])
+                    results = resp.json().get("data", [])
                     if results:
-                        best_img = results[0]["link"]
-                        asset = BrollAsset(
-                            id=f"google_img_{idx}",
-                            url=best_img,
-                            source="google"
-                        )
-                except Exception as e:
-                    print(f"  Google Image error: {e}")
-            else:
-                print("  Google Search API keys missing. Skipping Google Search...")
-                
-            # Fallback to Pexels if Google fails, returns empty, or keys are missing
-            if not asset:
-                print(f"  Falling back to Pexels Image for: '{query}'...")
-                try:
-                    api_key = self.settings.require(self.settings.pexels_api_key, "PEXELS_API_KEY")
-                    headers = {"Authorization": api_key}
-                    clean_query = query.lower().replace("portrait", "").replace("vertical", "").strip()
-                    
-                    url = f"https://api.pexels.com/v1/search?query={urllib.parse.quote(clean_query)}&orientation=portrait&per_page=3"
-                    resp = requests.get(url, headers=headers, timeout=10)
-                    resp.raise_for_status()
-                    photos = resp.json().get("photos", [])
-                    
-                    if not photos and len(clean_query.split()) > 2:
-                        simple_query = " ".join(clean_query.split()[:2])
-                        url = f"https://api.pexels.com/v1/search?query={urllib.parse.quote(simple_query)}&orientation=portrait&per_page=3"
-                        resp = requests.get(url, headers=headers, timeout=10)
-                        photos = resp.json().get("photos", [])
-                        
-                    if photos:
-                        photo = photos[0]
-                        # Get highest quality portrait image
-                        img_url = photo.get("src", {}).get("large2x", photo.get("src", {}).get("original"))
-                        if img_url:
+                        # Grab the high-quality mp4 variant of the GIF
+                        gif_data = results[0]
+                        mp4_url = gif_data.get("images", {}).get("original", {}).get("mp4")
+                        if mp4_url:
                             asset = BrollAsset(
-                                id=f"pexels_img_{photo.get('id')}",
-                                url=img_url,
-                                source="pexels"
+                                id=f"giphy_{gif_data.get('id', idx)}",
+                                url=mp4_url,
+                                source="giphy"
                             )
-                except Exception as fallback_err:
-                    print(f"  Pexels fallback error: {fallback_err}")
+                except Exception as e:
+                    print(f"  Giphy API error: {e}")
             
             if asset:
                 assets.append(asset)
             else:
-                print(f"  Warning: No image found for '{query}' anywhere.")
+                print(f"  Warning: No GIF found for '{query}'.")
                 
         return assets
