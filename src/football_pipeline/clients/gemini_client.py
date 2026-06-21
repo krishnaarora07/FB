@@ -27,7 +27,7 @@ class GeminiTopicClient:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    def choose_topic(self, videos: list[VideoSignal], trends: list[str], insights=None) -> TopicPackage:
+    def choose_topic(self, videos: list[VideoSignal], trends: list[str], news, insights=None) -> TopicPackage:
         # Retrieve API key, raise if missing
         api_key = self.settings.require(self.settings.gemini_api_key, "GEMINI_API_KEY or GOOGLE_API_KEY")
         try:
@@ -101,7 +101,7 @@ class GeminiTopicClient:
         # Ensure videos are at least 30 seconds as requested by the user
         target_length = max(30, self.settings.script_seconds)
 
-        prompt = self._build_prompt(videos, history, analytics_str, trends, target_length, hook_pressure, search_terms, viral_seeds, proven_hashtags)
+        prompt = self._build_prompt(videos, history, analytics_str, trends, news, target_length, hook_pressure, search_terms, viral_seeds, proven_hashtags)
         # Retry up to three times if Gemini returns an empty response, 429 rate limit, or low virality score
         for attempt in range(1, 4):
             try:
@@ -190,7 +190,7 @@ Score criteria:
         # Keep only the last 50 topics to avoid overflowing the prompt
         write_json(path, history[-50:])
 
-    def _build_prompt(self, videos: list[VideoSignal], history: list[str], analytics_str: str, trends: list[str], target_length: int, hook_pressure: str, search_terms: list[str], viral_seeds: list[str], proven_hashtags: list[str]) -> str:
+    def _build_prompt(self, videos: list[VideoSignal], history: list[str], analytics_str: str, trends: list[str], news, target_length: int, hook_pressure: str, search_terms: list[str], viral_seeds: list[str], proven_hashtags: list[str]) -> str:
         signal_limit = self.settings.max_signals_for_gemini
         payload = [video.prompt_dict() for video in videos[:signal_limit]]
 
@@ -219,6 +219,13 @@ Score criteria:
             for seed in viral_seeds:
                 trends_str += f"- {seed}\n"
                 
+        news_str = ""
+        if news:
+            news_str = "\n═══════════════════════════════════════════\nLIVE BREAKING NEWS (REAL SOURCE OF TRUTH)\n═══════════════════════════════════════════\n"
+            news_str += "You MUST choose a story from these REAL live news items. DO NOT invent stories. DO NOT hallucinate events that aren't mentioned here.\n"
+            for n in news[:30]:
+                news_str += f"- [{n.source}] {n.title}\n  Summary: {n.description}\n"
+
         hook_instructions = "- Use short punchy sentences. Vary rhythm. Build tension. End with a bang."
         if hook_pressure == "high":
             hook_instructions = "🚨 HIGH PRESSURE: Your opening hook is failing. Viewers are swiping away. Your first sentence MUST be a single explosive statement that creates instant shock."
@@ -239,14 +246,15 @@ Today is {date.today().isoformat()}.
 {history_str}
 {analytics_str}
 {trends_str}
-Your task is to analyze the provided Trend Signals and produce a complete, ready-to-publish short-form video package based on ONE highly trending football topic.
+{news_str}
+Your task is to analyze the provided LIVE BREAKING NEWS and produce a complete, ready-to-publish short-form video package based on ONE highly trending football topic.
 
 ═══════════════════════════════════════════
 1. TOPIC SELECTION & FACTUAL ACCURACY
 ═══════════════════════════════════════════
-- Select ONE highly trending football story based on the signals provided.
-- Your primary goal is maximizing views and retention by choosing a topic people are actively searching for right now.
-- STRICT FACTUAL ACCURACY: You are a journalistic channel. You MUST NOT invent fake quotes, fake transfer rumors, or fake news. All statistics, event details, and stories must be 100% true. Do NOT hallucinate.
+- Select ONE highly trending football story EXCLUSIVELY from the LIVE BREAKING NEWS section above.
+- Use the TREND SIGNALS and GOOGLE SEARCH TRENDS to decide *which* of the live news stories will go the most viral, but the facts of the story MUST come from the news feed.
+- STRICT FACTUAL ACCURACY: You are a journalistic channel. You MUST NOT invent fake quotes, fake transfer rumors, or fake news. All statistics, event details, and stories must be 100% true based on the provided live news. Do NOT hallucinate.
 
 ═══════════════════════════════════════════
 2. SCRIPT WRITING & PACING

@@ -31,8 +31,10 @@ class FootballPipeline:
 
     def ideate(self, videos: list[VideoSignal], insights=None) -> TopicPackage:
         from .clients.trends_client import GoogleTrendsClient
+        from .clients.rss_client import RSSClient
         trends = GoogleTrendsClient(self.settings).get_football_trends()
-        return GeminiTopicClient(self.settings).choose_topic(videos, trends, insights)
+        news = RSSClient().fetch_news(limit_per_feed=15)
+        return GeminiTopicClient(self.settings).choose_topic(videos, trends, news, insights)
 
     def fetch_broll(self, topic: TopicPackage) -> list[BrollAsset]:
         print("  Fetching dynamic B-roll strictly from Giphy...")

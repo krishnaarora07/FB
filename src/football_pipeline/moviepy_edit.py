@@ -111,10 +111,44 @@ def build_moviepy_edit(
     audio = AudioFileClip(str(voiceover_path))
     total_seconds = audio.duration
 
+    import json
+    words: list[dict] = []
+    if subtitles_path.exists():
+        try:
+            words = json.loads(subtitles_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            print(f"  WARNING: Could not read words.json: {exc}")
+
+    if not words:
+        words = _estimate_word_timings(topic.script, total_seconds)
+
     # ── 2. Prepare B-roll videos (or Parallax Images) ─────────────────────────
     total_chars = 0
+    segment_durations = []
     if hasattr(topic, "visual_segments") and topic.visual_segments:
         total_chars = sum(len(seg.get("text", "")) for seg in topic.visual_segments)
+        
+        if words and total_chars > 0:
+            char_cumulative = 0
+            last_time = 0.0
+            for i, seg in enumerate(topic.visual_segments):
+                char_count = len(seg.get("text", ""))
+                char_cumulative += char_count
+                target_ratio = char_cumulative / total_chars
+                target_word_idx = min(int(target_ratio * len(words)), len(words) - 1)
+                
+                # Fetch end timestamp of the target word in seconds
+                end_s = (words[target_word_idx]["offset"] + words[target_word_idx]["duration"]) / 10_000_000.0
+                
+                if i == len(topic.visual_segments) - 1:
+                    end_s = total_seconds
+                    
+                segment_durations.append(max(0.1, end_s - last_time))
+                last_time = end_s
+        else:
+            for seg in topic.visual_segments:
+                char_count = len(seg.get("text", ""))
+                segment_durations.append(total_seconds * (char_count / max(total_chars, 1)))
 
     video_clips = []
     cursor = 0.0
@@ -237,8 +271,7 @@ def build_moviepy_edit(
     
     if hasattr(topic, "visual_segments") and topic.visual_segments and total_chars > 0:
         for idx, seg in enumerate(topic.visual_segments):
-            char_count = len(seg.get("text", ""))
-            seg_duration = total_seconds * (char_count / total_chars)
+            seg_duration = segment_durations[idx]
             
             paths = seg_map.get(idx)
             if not paths:
@@ -345,21 +378,6 @@ def build_moviepy_edit(
     final_video.close()
 
     # ── 4. Build subtitle file ─────────────────────────────────────────────────
-    import json
-    words: list[dict] = []
-    if subtitles_path.exists():
-        try:
-            words = json.loads(subtitles_path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            print(f"  WARNING: Could not read words.json: {exc}")
-
-    if words:
-        print(f"  Using {len(words)} edge-tts word-boundary events for captions.")
-    else:
-        print("  No word-boundary events found — generating estimated word timings from script.")
-        words = _estimate_word_timings(topic.script, total_seconds)
-        print(f"  Estimated {len(words)} word timings from script text.")
-
     ass_path = output_path.with_name("captions.ass")
     _build_ass(words, ass_path)
 
