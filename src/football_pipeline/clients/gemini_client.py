@@ -240,6 +240,7 @@ TOPIC SELECTION — The "Mega-Star" Mandate
 - Analyze the provided Trend Signals. 
 - Rule 1: STRICT MEGA-STAR BIAS. Videos about abstract concepts or stadiums get ZERO views. You MUST pick topics revolving around mega-stars (Messi, Ronaldo, Yamal, Mbappe, Zlatan, Neymar).
 - Rule 2: Hunt for "Micro-Drama" — referee mistakes, intense rivalries, savage press conference quotes, or locker-room fights. Drama triggers clicks.
+- Rule 3: STRICT FACTUAL ACCURACY. Do NOT invent fake quotes, fake transfer rumors, or fake news. All drama, stats, and stories MUST be 100% true and based on real-world football events. DO NOT hallucinate details.
 - The topic MUST be directly connected to FIFA World Cup 2026.
 
 ═══════════════════════════════════════════
