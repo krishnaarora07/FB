@@ -21,11 +21,16 @@ class ImageSearchClient:
             print("  WARNING: GIPHY_API_KEY is missing from environment. B-roll generation will fail.")
             
         for idx, query in enumerate(queries):
-            asset = None
+            results = []
             
             if giphy_api_key:
                 try:
                     clean_query = query.replace("portrait", "").replace("vertical", "").strip()
+                    
+                    # Giphy limits queries to 50 chars, causing 414 URI Too Long errors
+                    if len(clean_query) > 45:
+                        clean_query = " ".join(clean_query[:45].split(" ")[:-1])
+                        
                     print(f"  Searching Giphy for: '{clean_query}'...")
                     
                     url = f"https://api.giphy.com/v1/gifs/search?api_key={giphy_api_key}&q={urllib.parse.quote(clean_query)}&limit=5&rating=pg-13"
