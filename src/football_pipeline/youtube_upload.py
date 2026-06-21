@@ -55,64 +55,10 @@ class YouTubeUploader:
             token_file.write_text(creds.to_json(), encoding="utf-8")
 
         youtube = build("youtube", "v3", credentials=creds)
-        from datetime import datetime, timezone, timedelta
-        import json
+        from datetime import datetime, timezone
 
         now = datetime.now(timezone.utc)
-        
-        # 1. Determine Earliest Start Time
-        earliest_start = now
-        history_path = Path("upload_history.json")
-        last_scheduled = None
-        if history_path.exists():
-            try:
-                history = json.loads(history_path.read_text(encoding="utf-8"))
-                if history and "scheduled_for" in history[-1]:
-                    last_scheduled = datetime.fromisoformat(history[-1]["scheduled_for"].replace("Z", "+00:00"))
-            except Exception:
-                pass
-                
-        if last_scheduled and last_scheduled > earliest_start:
-            earliest_start = last_scheduled
-            
-        # 2. Calculate Publish Date
-        if getattr(topic, "is_breaking_news", False):
-            # Fast-track ignores queue, publishes ASAP
-            publish_dt = now + timedelta(minutes=10)
-        else:
-            prime_blocks = [15, 18, 20] # India, UK, US Peak UTC hours
-            
-            best_days = []
-            if insights and getattr(insights, "best_days", None):
-                best_days = insights.best_days
-            if not best_days:
-                best_days = [5, 6] # Default Sat/Sun
-                
-            search_start = earliest_start
-            
-            found = False
-            days_ahead = 0
-            publish_dt = None
-            
-            # Find the next available prime block that falls on a best day
-            while not found and days_ahead < 14:
-                current_date = (search_start + timedelta(days=days_ahead)).date()
-                
-                if current_date.weekday() in best_days:
-                    for block in sorted(prime_blocks):
-                        dt = datetime(current_date.year, current_date.month, current_date.day, block, 0, 0, tzinfo=timezone.utc)
-                        # We must be strictly AFTER the last scheduled video
-                        if dt > earliest_start:
-                            publish_dt = dt
-                            found = True
-                            break
-                days_ahead += 1
-                
-            if not publish_dt:
-                # Fallback safeguard
-                publish_dt = earliest_start + timedelta(hours=4)
-            
-        publish_at_str = publish_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        published_at_str = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         body = {
             "snippet": {
@@ -122,8 +68,7 @@ class YouTubeUploader:
                 "categoryId": self.settings.youtube_upload_category_id,
             },
             "status": {
-                "privacyStatus": "private",
-                "publishAt": publish_at_str,
+                "privacyStatus": self.settings.youtube_upload_privacy_status,
                 "selfDeclaredMadeForKids": False,
             },
         }
@@ -164,7 +109,7 @@ class YouTubeUploader:
             except Exception as e:
                 print(f"  Warning: Failed to post affiliate comment: {e}")
                 
-        return video_id, publish_at_str
+        return video_id, published_at_str
 
     def _description(self, topic: TopicPackage) -> str:
         hashtags = " ".join(topic.hashtags)
