@@ -275,9 +275,6 @@ def build_moviepy_edit(
             sat = sat.fx(vfx.loop, duration=total_seconds)
             
         # Crop/resize to 1080x960
-        # Use the dynamically calculated target_duration
-        if sat.duration > target_duration:
-            sat = sat.subclip(0, target_duration)
         sat = sat.resize(width=1080)
         if sat.h > 960:
             y_center = sat.h / 2
