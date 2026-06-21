@@ -136,16 +136,16 @@ class GeminiTopicClient:
                 topic = TopicPackage.from_dict(data)
                 
                 # --- Virality Predictor Quality Gate ---
-                score_prompt = f"""You are a brutal YouTube shorts critic. Rate this script out of 10 for virality.
+                score_prompt = f"""You are a strict YouTube Shorts critic. Rate this script out of 10 for engagement, pacing, and factual integrity.
 Script: "{topic.script}"
 Title: "{topic.youtube_title}"
 
 Respond in JSON only: {{"score": 7, "reason": "too slow to hook"}}
 
 Score criteria:
-- 9-10: Explosive hook, high drama, strong loop
+- 9-10: Excellent hook, fast-paced, highly engaging, strong infinite loop
 - 7-8: Good, publishable
-- Below 7: REJECT — too boring, too slow, or no hook"""
+- Below 7: REJECT — too boring, too slow, or weak hook"""
                 
                 try:
                     score_response = client.models.generate_content(
@@ -225,54 +225,54 @@ Score criteria:
         word_limit = int(target_length * 2.1)
 
         return f"""
-You are a world-class YouTube Shorts producer and editor with 10 years of experience creating viral football content. You have an obsessive eye for quality, perfect timing, and know exactly which raw footage will hook viewers in the first 0.5 seconds. Your videos regularly hit 1M+ views.
+You are an expert YouTube Shorts producer and editor specializing in highly-engaging, factual football (soccer) content.
 
 Today is {date.today().isoformat()}.
 {history_str}
 {analytics_str}
 {trends_str}
-Your task is to pick ONE highly trending football topic and produce a complete, ready-to-publish short-form video package. Think like the best football content creator on the internet.
+Your task is to analyze the provided Trend Signals and produce a complete, ready-to-publish short-form video package based on ONE highly trending football topic.
 
 ═══════════════════════════════════════════
-TOPIC SELECTION
+1. TOPIC SELECTION & FACTUAL ACCURACY
 ═══════════════════════════════════════════
-- Act as a master YouTube strategist. Your goal is MAXIMIZING VIEWS, RETENTION, and ENGAGEMENT.
-- Analyze the provided Trend Signals. 
-- Rule 1: STRICT FACTUAL ACCURACY. Do NOT invent fake quotes, fake transfer rumors, or fake news. All stats and stories MUST be 100% true and based on real-world football events. DO NOT hallucinate details.
-- The topic MUST be related to football (soccer).
+- Select ONE highly trending football story based on the signals provided.
+- Your primary goal is maximizing views and retention by choosing a topic people are actively searching for right now.
+- STRICT FACTUAL ACCURACY: You are a journalistic channel. You MUST NOT invent fake quotes, fake transfer rumors, or fake news. All statistics, event details, and stories must be 100% true. Do NOT hallucinate.
 
 ═══════════════════════════════════════════
-SCRIPT — The "Perfect Loop" & Mystery Hooks
+2. SCRIPT WRITING & PACING
 ═══════════════════════════════════════════
-- STRICT LIMIT: Under {word_limit} words (Target video length is {target_length}s). Non-negotiable. Every word must earn its place.
-- THE PERFECT LOOP HACK: The final 5 words of your script MUST grammatically connect directly back into the first 5 words of the script so it forms an infinite looping sentence. Example: If the script starts with "Cristiano Ronaldo is finally breaking his silence...", it must end with "...and that is exactly why".
-- THE OPEN LOOP HACK: Occasionally (about 50% of the time), start the script with a massive, controversial, unanswered question, and DO NOT answer it until the final 5 seconds.
+- MAXIMUM LENGTH: Under {word_limit} words (Target video length is {target_length}s). This is a strict hard limit.
+- The script must be punchy, engaging, and fast-paced.
+- THE INFINITE LOOP: The final sentence of your script MUST grammatically connect directly back into the very first sentence so the video seamlessly loops. (Example: End with "...and that explains why" if the video starts with "Lionel Messi is leaving his club...")
 {hook_instructions}
-- NO filler words. NO "in this video". NO "don't forget to like and subscribe".
+- No filler words, introductions like "in this video", or outro requests like "like and subscribe". Get straight to the facts.
 
 ═══════════════════════════════════════════
-B-ROLL SELECTION — Think like a stock video search engine
+3. VISUALS (GIPHY B-ROLL)
 ═══════════════════════════════════════════
-You MUST generate EXACTLY ONE visual segment for every single sentence in your script.
-For each sentence, describe the VISUAL ACTION you want to see on screen (e.g. "angry football player shouting").
-Also specify the `asset_type`: Use "image" for high-quality player shots (Google), and use "gif" for funny memes, intense reactions, or specific short video loops (Tenor). KEEP "gif" LIMITED (mostly use "image").
-This 1-to-1 mapping is critical for perfectly synchronizing the images to the TTS audio.
+Our visual engine strictly uses GIPHY to download short video clips.
+- You MUST generate EXACTLY ONE visual segment for every single sentence in your script.
+- For each sentence, provide a `broll_query` that is a short, precise 2-5 word search term optimized for Giphy.
+- Examples of good Giphy queries: "Ronaldo celebrating goal", "Guardiola angry", "football fan crying", "referee red card".
+- DO NOT write full sentences for `broll_query`. Keep them short and literal.
 
 ═══════════════════════════════════════════
-OUTPUT FORMAT — JSON only, zero markdown
+4. OUTPUT FORMAT (STRICT JSON)
 ═══════════════════════════════════════════
 Return this exact JSON shape with NO extra text before or after:
 {{
-  "topic_title": "short topic name (max 8 words)",
-  "angle": "one electrifying sentence explaining why this topic is unmissable right now",
+  "topic_title": "short descriptive topic name (max 8 words)",
+  "angle": "one sentence explaining why this topic is currently trending",
   "visual_segments": [
-    {{"text": "First sentence of the script...", "broll_query": "angry football manager shouting", "asset_type": "image"}},
-    {{"text": "Second sentence of the script...", "broll_query": "sad soccer fan crying", "asset_type": "gif"}}
+    {{"text": "First sentence of the script...", "broll_query": "Ronaldo celebrating goal"}},
+    {{"text": "Second sentence of the script...", "broll_query": "football fan crying"}}
   ],
-  "youtube_title": "viral upload title under 95 chars with an emoji that creates FOMO",
-  "youtube_description": "2-3 explosive sentences that hook readers, naturally weave in highly-searched SEO keywords (like specific player names, teams, and 'Football Shorts'), and end with a controversial question.",
+  "youtube_title": "viral upload title under 95 chars with a relevant emoji",
+  "youtube_description": "2-3 engaging sentences naturally weaving in SEO keywords (player names, teams, 'Football Shorts').",
   "hashtags": {hashtag_instructions},
-  "is_breaking_news": false // Set to true ONLY if the topic is a massive, breaking event from the last 24 hours (e.g., major injury, massive transfer, live controversy). Otherwise false.
+  "is_breaking_news": false // True ONLY if the event happened in the last 24-48 hours
 }}
 
 ═══════════════════════════════════════════
