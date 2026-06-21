@@ -45,7 +45,6 @@ class ImageSearchClient:
             if not asset:
                 print(f"  Falling back to Pexels Image for: '{query}'...")
                 try:
-                    import urllib.parse
                     api_key = self.settings.require(self.settings.pexels_api_key, "PEXELS_API_KEY")
                     headers = {"Authorization": api_key}
                     clean_query = query.lower().replace("portrait", "").replace("vertical", "").strip()
