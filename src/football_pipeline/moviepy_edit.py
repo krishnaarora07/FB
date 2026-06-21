@@ -190,11 +190,12 @@ def build_moviepy_edit(
             raw_fg = VideoFileClip(str(broll_path)).without_audio()
             raw_bg = VideoFileClip(str(broll_path)).without_audio()
 
-            # Loop short clips; smartly extract from middle of long ones
+            # Prevent short GIFs from repeating over and over by slowing them down (epic slow-mo)
             if raw_fg.duration < length:
                 import moviepy.video.fx.all as vfx
-                raw_fg = raw_fg.fx(vfx.loop, duration=length)
-                raw_bg = raw_bg.fx(vfx.loop, duration=length)
+                speed_factor = raw_fg.duration / length
+                raw_fg = raw_fg.fx(vfx.speedx, speed_factor)
+                raw_bg = raw_bg.fx(vfx.speedx, speed_factor)
             else:
                 import random
                 buffer = raw_fg.duration * 0.15
