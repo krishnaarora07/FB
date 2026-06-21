@@ -28,7 +28,7 @@ class ImageSearchClient:
                     clean_query = query.replace("portrait", "").replace("vertical", "").strip()
                     print(f"  Searching Giphy for: '{clean_query}'...")
                     
-                    url = f"https://api.giphy.com/v1/gifs/search?api_key={giphy_api_key}&q={urllib.parse.quote(clean_query)}&limit=15&rating=pg-13"
+                    url = f"https://api.giphy.com/v1/gifs/search?api_key={giphy_api_key}&q={urllib.parse.quote(clean_query)}&limit=5&rating=pg-13"
                     resp = requests.get(url, timeout=10)
                     if not resp.ok:
                         print(f"  Giphy API error body: {resp.text}")
