@@ -33,6 +33,8 @@ class ImageSearchClient:
                     print(f"  Searching Google Images for: '{query}'...")
                     url = f"https://www.googleapis.com/customsearch/v1?q={urllib.parse.quote(query)}&key={google_api_key}&cx={google_cx}&searchType=image&imgSize=large&num=3"
                     resp = requests.get(url, timeout=10)
+                    if not resp.ok:
+                        print(f"  Google API error body: {resp.text}")
                     resp.raise_for_status()
                     
                     results = resp.json().get("items", [])
