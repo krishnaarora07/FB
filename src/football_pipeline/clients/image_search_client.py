@@ -16,7 +16,12 @@ class ImageSearchClient:
         
         # Load Google API Keys (will fail gracefully to Pexels if missing)
         google_api_key = self.settings.google_search_api_key
+        if google_api_key:
+            google_api_key = google_api_key.strip(' "\'\r\n\t')
+            
         google_cx = self.settings.google_search_engine_id
+        if google_cx:
+            google_cx = google_cx.strip(' "\'\r\n\t')
         
         # Sanitize Google CX in case the user pasted the full HTML <script> snippet
         if google_cx and "cx=" in google_cx:
