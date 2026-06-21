@@ -43,18 +43,21 @@ class FootballPipeline:
         
         if hasattr(topic, "visual_segments") and topic.visual_segments:
             for idx, seg in enumerate(topic.visual_segments):
-                query = seg.get("broll_query", "")
+                queries = seg.get("broll_queries", [])
+                if not queries:
+                    query = seg.get("broll_query", "")
+                    if query: queries = [query]
                 
-                res = giphy_client.search_gifs(query, limit=5)
-                    
-                if res:
-                    for single_asset in res:
-                        single_asset = BrollAsset(id=f"seg_{idx}_{single_asset.id}", url=single_asset.url, source=single_asset.source)
+                for q_idx, query in enumerate(queries):
+                    res = giphy_client.search_gifs(query, limit=1)
+                    if res:
+                        single_asset = res[0]
+                        single_asset = BrollAsset(id=f"seg_{idx}_{single_asset.id}_{q_idx}", url=single_asset.url, source=single_asset.source)
                         assets.append(single_asset)
         else:
             # Fallback for old topics
             for idx, query in enumerate(topic.broll_queries):
-                res = giphy_client.search_gifs(query, limit=5)
+                res = giphy_client.search_gifs(query, limit=1)
                 if res:
                     for single_asset in res:
                         single_asset = BrollAsset(id=f"seg_{idx}_{single_asset.id}", url=single_asset.url, source=single_asset.source)
@@ -70,7 +73,7 @@ class FootballPipeline:
         paths = []
         for i, asset in enumerate(broll_assets):
             # Attempt to extract original extension, default to jpg
-            ext = ".mp4" if asset.source == "tenor" else ".jpg"
+            ext = ".mp4" if asset.source in ["tenor", "giphy"] else ".jpg"
             if "." in asset.url.split("/")[-1]:
                 parsed = asset.url.split("/")[-1].split("?")[0]
                 if "." in parsed:

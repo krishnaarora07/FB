@@ -132,7 +132,14 @@ class GeminiTopicClient:
                 data = _parse_jsonish(topic_text)
                 if "visual_segments" in data:
                     data["script"] = " ".join([seg.get("text", "") for seg in data["visual_segments"]])
-                    data["broll_queries"] = [seg.get("broll_query", "") for seg in data["visual_segments"]]
+                    # Flatten the new broll_queries array format into the old list format for compatibility
+                    bq = []
+                    for seg in data["visual_segments"]:
+                        if "broll_queries" in seg:
+                            bq.extend(seg["broll_queries"])
+                        elif "broll_query" in seg:
+                            bq.append(seg["broll_query"])
+                    data["broll_queries"] = bq
                 topic = TopicPackage.from_dict(data)
                 
                 # --- Virality Predictor Quality Gate ---
@@ -143,8 +150,9 @@ Title: "{topic.youtube_title}"
 Respond in JSON only: {{"score": 7, "reason": "too slow to hook"}}
 
 Score criteria:
-- 9-10: Excellent hook, fast-paced, highly engaging, strong infinite loop
-- 7-8: Good, publishable
+- Automatically 0 if the story contains FAKE NEWS, fabricated drama, or hallucinated details.
+- 9-10: Excellent hook, fast-paced, highly engaging, strong infinite loop, 100% FACTUAL.
+- 7-8: Good, publishable, 100% FACTUAL.
 - Below 7: REJECT — too boring, too slow, or weak hook"""
                 
                 try:
@@ -254,9 +262,10 @@ Your task is to analyze the provided Trend Signals and produce a complete, ready
 ═══════════════════════════════════════════
 Our visual engine strictly uses GIPHY to download short video clips.
 - You MUST generate EXACTLY ONE visual segment for every single sentence in your script.
-- For each sentence, provide a `broll_query` that is a short, precise 2-5 word search term optimized for Giphy.
-- Examples of good Giphy queries: "Ronaldo celebrating goal", "Guardiola angry", "football fan crying", "referee red card".
-- DO NOT write full sentences for `broll_query`. Keep them short and literal.
+- For each sentence, provide an array of 2 to 3 `broll_queries`. These must be short, precise 2-5 word literal search terms optimized for Giphy.
+- Giphy's search is very literal. Instead of "a cinematic shot of Ronaldo", use "Ronaldo celebrating goal".
+- Examples of good Giphy queries: "Ronaldo crying", "Guardiola angry", "football fan sad", "referee red card".
+- DO NOT write full sentences for queries. Keep them short and literal.
 
 ═══════════════════════════════════════════
 4. OUTPUT FORMAT (STRICT JSON)
@@ -266,8 +275,8 @@ Return this exact JSON shape with NO extra text before or after:
   "topic_title": "short descriptive topic name (max 8 words)",
   "angle": "one sentence explaining why this topic is currently trending",
   "visual_segments": [
-    {{"text": "First sentence of the script...", "broll_query": "Ronaldo celebrating goal"}},
-    {{"text": "Second sentence of the script...", "broll_query": "football fan crying"}}
+    {{"text": "First sentence of the script...", "broll_queries": ["Ronaldo celebrating goal", "Portugal fans cheering"]}},
+    {{"text": "Second sentence of the script...", "broll_queries": ["football fan crying", "sad soccer player"]}}
   ],
   "youtube_title": "viral upload title under 95 chars with a relevant emoji",
   "youtube_description": "2-3 engaging sentences naturally weaving in SEO keywords (player names, teams, 'Football Shorts').",
