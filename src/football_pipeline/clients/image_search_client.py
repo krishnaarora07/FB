@@ -28,29 +28,27 @@ class ImageSearchClient:
                     clean_query = query.replace("portrait", "").replace("vertical", "").strip()
                     print(f"  Searching Giphy for: '{clean_query}'...")
                     
-                    url = f"https://api.giphy.com/v1/gifs/search?api_key={giphy_api_key}&q={urllib.parse.quote(clean_query)}&limit=1&rating=pg-13"
+                    url = f"https://api.giphy.com/v1/gifs/search?api_key={giphy_api_key}&q={urllib.parse.quote(clean_query)}&limit=3&rating=pg-13"
                     resp = requests.get(url, timeout=10)
                     if not resp.ok:
                         print(f"  Giphy API error body: {resp.text}")
                     resp.raise_for_status()
                     
                     results = resp.json().get("data", [])
-                    if results:
-                        # Grab the high-quality mp4 variant of the GIF
-                        gif_data = results[0]
+                    for gif_idx, gif_data in enumerate(results):
                         mp4_url = gif_data.get("images", {}).get("original", {}).get("mp4")
                         if mp4_url:
                             asset = BrollAsset(
-                                id=f"giphy_{gif_data.get('id', idx)}",
+                                id=f"giphy_{gif_data.get('id', str(idx) + '_' + str(gif_idx))}",
                                 url=mp4_url,
                                 source="giphy"
                             )
+                            assets.append(asset)
+                            
                 except Exception as e:
                     print(f"  Giphy API error: {e}")
             
-            if asset:
-                assets.append(asset)
-            else:
+            if not results:
                 print(f"  Warning: No GIF found for '{query}'.")
                 
         return assets

@@ -168,43 +168,31 @@ def build_moviepy_edit(
         
         return CompositeVideoClip([bg_clip, fg_clip], size=(1080, 960)).set_duration(length)
 
-    for idx, broll_path in enumerate(broll_paths):
+    import itertools
+    
+    # We use itertools.cycle so if the script is incredibly long, we never hit a black screen
+    broll_cycle = itertools.cycle(broll_paths)
+    
+    for broll_path in broll_cycle:
         remaining = max(total_seconds - cursor, 0)
-        if total_chars > 0 and idx < len(topic.visual_segments):
-            char_count = len(topic.visual_segments[idx].get("text", ""))
-            target_clip_length = total_seconds * (char_count / total_chars)
-        else:
-            target_clip_length = max(target_duration, total_seconds / len(broll_paths))
-            
-        length = min(target_clip_length, remaining) if remaining else target_clip_length
-        if idx == len(broll_paths) - 1:
-            length = remaining
-            
-        if length <= 0:
+        if remaining <= 0:
             break
 
         if broll_path.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]:
+            length = min(3.0, remaining) # Static images get 3 seconds
             print(f"  Generating Parallax clip for {broll_path.name}...")
             clip = _create_parallax_clip(broll_path, length)
         else:
             raw_fg = VideoFileClip(str(broll_path)).without_audio()
             raw_bg = VideoFileClip(str(broll_path)).without_audio()
 
-            # Prevent short GIFs from repeating over and over by slowing them down (epic slow-mo)
-            if raw_fg.duration < length:
-                import moviepy.video.fx.all as vfx
-                speed_factor = raw_fg.duration / length
-                raw_fg = raw_fg.fx(vfx.speedx, speed_factor)
-                raw_bg = raw_bg.fx(vfx.speedx, speed_factor)
-            else:
-                import random
-                buffer = raw_fg.duration * 0.15
-                if raw_fg.duration - (2 * buffer) >= length:
-                    start_t = random.uniform(buffer, raw_fg.duration - buffer - length)
-                else:
-                    start_t = random.uniform(0, max(0, raw_fg.duration - length))
-                raw_fg = raw_fg.subclip(start_t, start_t + length)
-                raw_bg = raw_bg.subclip(start_t, start_t + length)
+            # Play the GIF at 100% normal native speed.
+            # Max duration is 4 seconds to keep pacing snappy, or until the audio ends.
+            max_duration = min(4.0, raw_fg.duration)
+            length = min(max_duration, remaining)
+            
+            raw_fg = raw_fg.subclip(0, length)
+            raw_bg = raw_bg.subclip(0, length)
                 
             # Create Foreground (original ratio, fit inside 1080x960)
             fg_clip = raw_fg.resize(width=1080)
