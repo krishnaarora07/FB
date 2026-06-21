@@ -18,6 +18,13 @@ class ImageSearchClient:
         google_api_key = self.settings.google_search_api_key
         google_cx = self.settings.google_search_engine_id
         
+        # Sanitize Google CX in case the user pasted the full HTML <script> snippet
+        if google_cx and "cx=" in google_cx:
+            import re
+            match = re.search(r'cx=([a-zA-Z0-9]+)', google_cx)
+            if match:
+                google_cx = match.group(1)
+        
         for idx, query in enumerate(queries):
             asset = None
             
