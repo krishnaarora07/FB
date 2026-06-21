@@ -231,17 +231,15 @@ Today is {date.today().isoformat()}.
 {history_str}
 {analytics_str}
 {trends_str}
-Your task is to pick ONE trending football topic connected to FIFA World Cup 2026 and produce a complete, ready-to-publish short-form video package. Think like the best football content creator on the internet.
+Your task is to pick ONE highly trending football topic and produce a complete, ready-to-publish short-form video package. Think like the best football content creator on the internet.
 
 ═══════════════════════════════════════════
-TOPIC SELECTION — The "Mega-Star" Mandate
+TOPIC SELECTION
 ═══════════════════════════════════════════
 - Act as a master YouTube strategist. Your goal is MAXIMIZING VIEWS, RETENTION, and ENGAGEMENT.
 - Analyze the provided Trend Signals. 
-- Rule 1: STRICT MEGA-STAR BIAS. Videos about abstract concepts or stadiums get ZERO views. You MUST pick topics revolving around mega-stars (Messi, Ronaldo, Yamal, Mbappe, Zlatan, Neymar).
-- Rule 2: Hunt for "Micro-Drama" — referee mistakes, intense rivalries, savage press conference quotes, or locker-room fights. Drama triggers clicks.
-- Rule 3: STRICT FACTUAL ACCURACY. Do NOT invent fake quotes, fake transfer rumors, or fake news. All drama, stats, and stories MUST be 100% true and based on real-world football events. DO NOT hallucinate details.
-- The topic MUST be directly connected to FIFA World Cup 2026.
+- Rule 1: STRICT FACTUAL ACCURACY. Do NOT invent fake quotes, fake transfer rumors, or fake news. All stats and stories MUST be 100% true and based on real-world football events. DO NOT hallucinate details.
+- The topic MUST be related to football (soccer).
 
 ═══════════════════════════════════════════
 SCRIPT — The "Perfect Loop" & Mystery Hooks
