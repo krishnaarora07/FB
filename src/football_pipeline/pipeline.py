@@ -35,30 +35,30 @@ class FootballPipeline:
         return GeminiTopicClient(self.settings).choose_topic(videos, trends, insights)
 
     def fetch_broll(self, topic: TopicPackage) -> list[BrollAsset]:
-        print("  Fetching dynamic B-roll (Google Images + Tenor GIFs)...")
-        from .clients.image_search_client import ImageSearchClient
-        from .clients.tenor_search_client import TenorSearchClient
+        print("  Fetching dynamic B-roll strictly from Giphy...")
+        from .clients.giphy_client import GiphyClient
         
         assets = []
-        img_client = ImageSearchClient(self.settings)
-        tenor_client = TenorSearchClient(self.settings)
+        giphy_client = GiphyClient(self.settings)
         
         if hasattr(topic, "visual_segments") and topic.visual_segments:
             for idx, seg in enumerate(topic.visual_segments):
                 query = seg.get("broll_query", "")
-                asset_type = seg.get("asset_type", "image")
                 
-                if asset_type == "gif":
-                    res = tenor_client.search_videos([query])
-                else:
-                    res = img_client.search_images([query])
+                res = giphy_client.search_gifs(query, limit=5)
                     
                 if res:
                     for single_asset in res:
                         single_asset = BrollAsset(id=f"seg_{idx}_{single_asset.id}", url=single_asset.url, source=single_asset.source)
                         assets.append(single_asset)
         else:
-            assets = img_client.search_images(topic.broll_queries)
+            # Fallback for old topics
+            for idx, query in enumerate(topic.broll_queries):
+                res = giphy_client.search_gifs(query, limit=5)
+                if res:
+                    for single_asset in res:
+                        single_asset = BrollAsset(id=f"seg_{idx}_{single_asset.id}", url=single_asset.url, source=single_asset.source)
+                        assets.append(single_asset)
             
         return assets
 
