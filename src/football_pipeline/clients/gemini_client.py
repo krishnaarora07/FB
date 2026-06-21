@@ -91,15 +91,15 @@ class GeminiTopicClient:
         viral_seeds = []
         if insights:
             if insights.avg_view_duration:
-                target_length = min(insights.avg_view_duration, 20) # FORCE micro-scripts to pass seed audience
-                if target_length < 10:
+                if insights.avg_view_duration < 15:
                     hook_pressure = "red_alert"
-                elif target_length < 20:
+                elif insights.avg_view_duration < 25:
                     hook_pressure = "high"
             search_terms = insights.search_terms
             viral_seeds = insights.viral_seeds
-        else:
-            target_length = 20 # Default to 20s if no analytics available
+            
+        # Ensure videos are at least 30 seconds as requested by the user
+        target_length = max(30, self.settings.script_seconds)
 
         prompt = self._build_prompt(videos, history, analytics_str, trends, target_length, hook_pressure, search_terms, viral_seeds, proven_hashtags)
         # Retry up to three times if Gemini returns an empty response, 429 rate limit, or low virality score
