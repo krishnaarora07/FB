@@ -168,38 +168,25 @@ def build_moviepy_edit(
         
         return CompositeVideoClip([bg_clip, fg_clip], size=(1080, 960)).set_duration(length)
 
-    import itertools
-    
-    # We use itertools.cycle so if the script is incredibly long, we never hit a black screen
-    broll_cycle = itertools.cycle(broll_paths)
-    
-    for broll_path in broll_cycle:
-        remaining = max(total_seconds - cursor, 0)
-        if remaining <= 0:
-            break
-
+    def _process_broll_clip(broll_path: Path, max_allowable_length: float, is_first: bool):
         if broll_path.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]:
-            length = min(3.0, remaining) # Static images get 3 seconds
+            length = min(3.0, max_allowable_length)
             print(f"  Generating Parallax clip for {broll_path.name}...")
             clip = _create_parallax_clip(broll_path, length)
         else:
             raw_fg = VideoFileClip(str(broll_path)).without_audio()
             raw_bg = VideoFileClip(str(broll_path)).without_audio()
 
-            # Play the GIF at 100% normal native speed.
-            # Max duration is 4 seconds to keep pacing snappy, or until the audio ends.
             max_duration = min(4.0, raw_fg.duration)
-            length = min(max_duration, remaining)
+            length = min(max_duration, max_allowable_length)
             
             raw_fg = raw_fg.subclip(0, length)
             raw_bg = raw_bg.subclip(0, length)
                 
-            # Create Foreground (original ratio, fit inside 1080x960)
             fg_clip = raw_fg.resize(width=1080)
             if fg_clip.h > 960:
                 fg_clip = fg_clip.resize(height=960)
                 
-            # Create Background (blown up and blurred fast)
             bg_clip = raw_bg.resize(height=960)
             if bg_clip.w < 1080:
                 bg_clip = bg_clip.resize(width=1080)
@@ -209,28 +196,23 @@ def build_moviepy_edit(
             bg_clip = bg_clip.crop(x1=x_center - 540, y1=y_center - 480, x2=x_center + 540, y2=y_center + 480)
             
             def blur_frame(image):
-                from PIL import Image, ImageFilter
+                from PIL import Image
                 import numpy as np
                 img = Image.fromarray(image).convert("RGB")
                 img.thumbnail((270, 240))
-                # Background blur removed as per user request to not blur anything
                 img = img.resize((1080, 960), Image.Resampling.BILINEAR)
                 return np.array(img)
                 
             bg_clip = bg_clip.fl_image(blur_frame)
-            
-            # Force exact dimension with transparent padding to bypass CompositeVideoClip positioning bugs
             fg_clip = fg_clip.on_color(size=(1080, 960), color=(0,0,0), col_opacity=0, pos="center")
             
             from moviepy.editor import CompositeVideoClip
             clip = CompositeVideoClip([bg_clip, fg_clip], size=(1080, 960)).set_duration(length)
 
-        if cursor > 0:
+        if not is_first:
             import random
             from moviepy.editor import CompositeVideoClip, ColorClip
-            
             t_type = random.choice(["crossfade", "dip_to_black", "flash_white", "hard_cut"])
-            
             if t_type == "crossfade":
                 clip = clip.crossfadein(0.3)
             elif t_type == "dip_to_black":
@@ -239,11 +221,58 @@ def build_moviepy_edit(
                 flash = ColorClip(size=(1080, 960), color=(255,255,255)).set_duration(0.15)
                 flash = flash.crossfadeout(0.15)
                 clip = CompositeVideoClip([clip, flash.set_position("center")])
+        return clip
 
-        video_clips.append(clip)
-        cursor += clip.duration
-        if cursor >= total_seconds:
-            break
+    import re
+    import itertools
+    
+    seg_map = {}
+    for bp in broll_paths:
+        match = re.search(r"seg_(\d+)_", bp.name)
+        if match:
+            idx = int(match.group(1))
+            seg_map.setdefault(idx, []).append(bp)
+        else:
+            seg_map.setdefault(0, []).append(bp)
+    
+    if hasattr(topic, "visual_segments") and topic.visual_segments and total_chars > 0:
+        for idx, seg in enumerate(topic.visual_segments):
+            char_count = len(seg.get("text", ""))
+            seg_duration = total_seconds * (char_count / total_chars)
+            
+            paths = seg_map.get(idx)
+            if not paths:
+                paths = broll_paths
+                
+            seg_cycle = itertools.cycle(paths)
+            seg_cursor = 0.0
+            
+            for broll_path in seg_cycle:
+                remaining_global = max(total_seconds - cursor, 0)
+                remaining_seg = max(seg_duration - seg_cursor, 0)
+                
+                allowable = min(remaining_seg, remaining_global)
+                if allowable <= 0.1:
+                    break
+                    
+                clip = _process_broll_clip(broll_path, allowable, is_first=(cursor == 0.0))
+                video_clips.append(clip)
+                seg_cursor += clip.duration
+                cursor += clip.duration
+                
+                if cursor >= total_seconds:
+                    break
+            if cursor >= total_seconds:
+                break
+    else:
+        broll_cycle = itertools.cycle(broll_paths)
+        for broll_path in broll_cycle:
+            remaining_global = max(total_seconds - cursor, 0)
+            if remaining_global <= 0.1:
+                break
+            clip = _process_broll_clip(broll_path, remaining_global, is_first=(cursor == 0.0))
+            video_clips.append(clip)
+            cursor += clip.duration
 
     top_video = concatenate_videoclips(video_clips, method="compose")
     top_video = top_video.set_duration(total_seconds).set_position(("center", "top"))

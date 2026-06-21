@@ -54,9 +54,9 @@ class FootballPipeline:
                     res = img_client.search_images([query])
                     
                 if res:
-                    # Update ID to prevent collisions
-                    res[0] = BrollAsset(id=f"seg_{idx}_{res[0].id}", url=res[0].url, source=res[0].source)
-                    assets.append(res[0])
+                    for single_asset in res:
+                        single_asset = BrollAsset(id=f"seg_{idx}_{single_asset.id}", url=single_asset.url, source=single_asset.source)
+                        assets.append(single_asset)
         else:
             assets = img_client.search_images(topic.broll_queries)
             
@@ -78,7 +78,9 @@ class FootballPipeline:
                     if potential_ext in [".jpg", ".png", ".jpeg", ".webp", ".mp4"]:
                         ext = potential_ext
                     
-            output = run_dir / f"broll_{i}{ext}"
+            import re
+            safe_id = re.sub(r'[^a-zA-Z0-9_]', '_', asset.id)
+            output = run_dir / f"broll_{i}_{safe_id}{ext}"
             print(f"  Downloading asset {asset.id} -> {output.name}...")
             try:
                 # Add User-Agent since some image hosts block default requests User-Agent
