@@ -270,10 +270,11 @@ Your task is to analyze the provided LIVE BREAKING NEWS and produce a complete, 
 ═══════════════════════════════════════════
 Our visual engine strictly uses GIPHY to download short video clips.
 - You MUST generate EXACTLY ONE visual segment for every single sentence in your script.
-- For each sentence, provide an array of 2 to 3 `broll_queries`. These must be short, precise 2-5 word literal search terms optimized for Giphy.
-- Giphy's search is very literal. Instead of "a cinematic shot of Ronaldo", use "Ronaldo celebrating goal".
-- Examples of good Giphy queries: "Ronaldo crying", "Guardiola angry", "football fan sad", "referee red card".
-- DO NOT write full sentences for queries. Keep them short and literal.
+- For each sentence, provide an array of 2 to 3 `broll_queries`. These MUST be EXTREMELY short and broad (1-3 words max).
+- Giphy's search is very literal and fails on complex phrases. Use basic nouns and simple actions.
+- Instead of "Ronaldo celebrating a goal with his teammates", use just "Ronaldo goal" or "Ronaldo".
+- Examples of good Giphy queries: "Messi sad", "Guardiola", "football fans", "referee", "red card".
+- DO NOT write full sentences for queries. Keep them as broad, accurate, and short as possible.
 
 ═══════════════════════════════════════════
 4. OUTPUT FORMAT (STRICT JSON)
