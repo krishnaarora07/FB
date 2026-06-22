@@ -2,10 +2,12 @@ name: Daily Football Pipeline
 
 on:
   schedule:
-    # Runs at 5:00 AM IST (11:30 PM UTC)
-    - cron: '30 23 * * *'
-    # Runs at 12:00 PM IST (6:30 AM UTC)
-    - cron: '30 6 * * *'
+    # 3:30 AM IST (Americas Peak)
+    - cron: '0 22 * * *'
+    # 7:00 PM IST (India/Middle East Peak)
+    - cron: '30 13 * * *'
+    # 10:30 PM IST (Europe Peak)
+    - cron: '0 17 * * *'
   workflow_dispatch: # Allows manual trigger from the Actions tab
 
 jobs:
