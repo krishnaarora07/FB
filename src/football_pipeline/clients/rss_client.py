@@ -15,23 +15,17 @@ class NewsItem:
 class RSSClient:
     # Ordered by viral potential — spicy transfers, drama, controversies first
     FEEDS = {
-        # 🔥 Transfer gossip & breaking drama
-        "GOAL.com":           "https://www.goal.com/feeds/en/news",
-        "90min":              "https://www.90min.com/feeds/latest.rss",
-        "Football365":        "https://www.football365.com/feed",
-        "FourFourTwo":        "https://www.fourfourtwo.com/rss/news",
-        "The Athletic":       "https://theathletic.com/rss-feeds/",
-
-        # 🔥 Transfer rumours — most viral content on YouTube
-        "Transfermarkt News": "https://www.transfermarkt.co.uk/news/rss",
-        "TeamTalk":           "https://www.teamtalk.com/feed",
+        # 🔥 Viral & drama-heavy football news
+        "Mirror Football":     "https://www.mirror.co.uk/sport/football/rss.xml",
+        "Daily Mail Football": "https://www.dailymail.co.uk/sport/football/index.rss",
+        "The Guardian Football": "https://www.theguardian.com/football/rss",
+        "Caught Offside":      "https://www.caughtoffside.com/feed/",
+        "Planet Football":     "https://www.planetfootball.com/feed/",
+        "Football Italia":     "https://www.football-italia.net/feed/",
 
         # 📰 Broader football news as fallback
         "Sky Sports Football": "https://www.skysports.com/rss/12040",
         "BBC Sport Football":  "http://feeds.bbci.co.uk/sport/football/rss.xml",
-        "Mirror Football":     "https://www.mirror.co.uk/sport/football/rss.xml",
-        "The Sun Football":    "https://www.thesun.co.uk/sport/football/feed/",
-        "Daily Mail Football": "https://www.dailymail.co.uk/sport/football/index.rss",
         "TalkSPORT":           "https://talksport.com/feed/",
     }
 

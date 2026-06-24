@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from datetime import date
 from pathlib import Path
 
@@ -101,7 +102,7 @@ class GeminiTopicClient:
         # Ensure videos are at least 30 seconds as requested by the user
         target_length = max(30, self.settings.script_seconds)
 
-        prompt = self._build_prompt(videos, history, analytics_str, trends, news, target_length, hook_pressure, search_terms, viral_seeds, proven_hashtags)
+        base_prompt = self._build_prompt(videos, history, analytics_str, trends, news, target_length, hook_pressure, search_terms, viral_seeds, proven_hashtags)
         # All verified models ordered best quality → most available (verified 2026-06-25)
         fallback_chain = [
             "gemini-2.5-pro",        # Best quality
@@ -113,78 +114,85 @@ class GeminiTopicClient:
             "gemini-2.0-flash-lite", # High free-tier quota
             "gemini-flash-latest",   # Alias - ultimate fallback
         ]
-        
+
         # Ensure starting model is in the chain; if not, prepend it
         if model_name not in fallback_chain:
             fallback_chain = [model_name] + fallback_chain
 
-        response = None
-        for model_name in fallback_chain:
-            print(f"  Trying model: {model_name}", flush=True)
-            for attempt in range(1, 6):  # 5 attempts per model
+        # Outer loop: retry topic generation if virality score is too low
+        for generation_attempt in range(1, 4):  # max 3 topic generations
+            prompt = base_prompt
+            if generation_attempt > 1:
+                print(f"  Retrying topic generation (attempt {generation_attempt}/3)...", flush=True)
+
+            # Inner loops: try each model with up to 5 retries each
+            response = None
+            used_model = model_name
+            for candidate_model in fallback_chain:
+                print(f"  Trying model: {candidate_model}", flush=True)
+                for attempt in range(1, 6):  # 5 attempts per model
+                    try:
+                        response = client.models.generate_content(
+                            model=candidate_model,
+                            contents=prompt,
+                        )
+                        used_model = candidate_model
+                        break  # success — exit inner retry loop
+                    except genai.errors.APIError as exc:
+                        import time
+                        err_code = getattr(exc, 'code', 500)
+
+                        if err_code == 404:
+                            print(f"  Model {candidate_model} not found (404), skipping.", flush=True)
+                            break
+                        elif err_code in (429, 503, 500, 502, 504):
+                            wait_time = min(10, 5 * attempt)
+                            print(f"  Gemini API error ({err_code}) on {candidate_model}. Waiting {wait_time}s... (attempt {attempt}/5)", flush=True)
+                            time.sleep(wait_time)
+                        else:
+                            raise  # Unknown error — don't retry
+                else:
+                    print(f"  Model {candidate_model} exhausted all retries. Trying next fallback...", flush=True)
+                    response = None
+                    continue
+
+                if response is not None:
+                    break  # exit model loop on success
+
+            if response is None:
+                raise RuntimeError(
+                    "All Gemini models exhausted after multiple retries. Check your API key and quota."
+                )
+
+            # Parse response
+            topic_text = None
+            if getattr(response, "text", None):
+                topic_text = response.text
+            elif hasattr(response, "candidates") and response.candidates:
+                candidate = response.candidates[0]
                 try:
-                    response = client.models.generate_content(
-                        model=model_name,
-                        contents=prompt,
-                    )
-                    break  # success — exit inner retry loop
-                except genai.errors.APIError as exc:
-                    import time
-                    err_code = getattr(exc, 'code', 500)
-                    
-                    if err_code == 404:
-                        # Model doesn't exist — skip immediately, no wait
-                        print(f"  Model {model_name} not found (404), skipping.", flush=True)
-                        break
-                    elif err_code in (429, 503, 500, 502, 504):
-                        wait_time = min(10, 5 * attempt)
-                        print(f"  Gemini API error ({err_code}) on {model_name}. Waiting {wait_time}s... (attempt {attempt}/5)", flush=True)
-                        time.sleep(wait_time)
-                    else:
-                        raise  # Unknown error — don't retry
-            else:
-                # All 5 attempts for this model failed — try next model
-                print(f"  Model {model_name} exhausted all retries. Trying next fallback...", flush=True)
-                response = None
-                continue
-            
-            if response is not None:
-                break  # exit outer model loop on success
+                    part = candidate.content.parts[0]
+                    topic_text = getattr(part, "text", None) or getattr(part, "display_text", None)
+                except Exception:
+                    pass
 
-        if response is None:
-            raise RuntimeError(
-                "All Gemini models exhausted after multiple retries. Check your API key and quota."
-            )
+            if not topic_text:
+                raise RuntimeError("Gemini returned an empty response — check your API key and model.")
 
-        topic_text = None
-        if getattr(response, "text", None):
-            topic_text = response.text
-        elif hasattr(response, "candidates") and response.candidates:
-            candidate = response.candidates[0]
-            try:
-                part = candidate.content.parts[0]
-                topic_text = getattr(part, "text", None) or getattr(part, "display_text", None)
-            except Exception:
-                pass
+            data = _parse_jsonish(topic_text)
+            if "visual_segments" in data:
+                data["script"] = " ".join([seg.get("text", "") for seg in data["visual_segments"]])
+                bq = []
+                for seg in data["visual_segments"]:
+                    if "broll_queries" in seg:
+                        bq.extend(seg["broll_queries"])
+                    elif "broll_query" in seg:
+                        bq.append(seg["broll_query"])
+                data["broll_queries"] = bq
+            topic = TopicPackage.from_dict(data)
 
-        if not topic_text:
-            raise RuntimeError("Gemini returned an empty response — check your API key and model.")
-
-        data = _parse_jsonish(topic_text)
-        if "visual_segments" in data:
-            data["script"] = " ".join([seg.get("text", "") for seg in data["visual_segments"]])
-            # Flatten the new broll_queries array format into the old list format for compatibility
-            bq = []
-            for seg in data["visual_segments"]:
-                if "broll_queries" in seg:
-                    bq.extend(seg["broll_queries"])
-                elif "broll_query" in seg:
-                    bq.append(seg["broll_query"])
-            data["broll_queries"] = bq
-        topic = TopicPackage.from_dict(data)
-
-        # --- Virality Predictor Quality Gate ---
-        score_prompt = f"""You are a strict YouTube Shorts critic. Rate this script out of 10 for engagement, pacing, and factual integrity.
+            # --- Virality Predictor Quality Gate ---
+            score_prompt = f"""You are a strict YouTube Shorts critic. Rate this script out of 10 for engagement, pacing, and factual integrity.
 Script: "{topic.script}"
 Title: "{topic.youtube_title}"
 
@@ -196,20 +204,34 @@ Score criteria:
 - 7-8: Good, publishable, 100% FACTUAL.
 - Below 7: REJECT — too boring, too slow, or weak hook"""
 
-        try:
-            score_response = client.models.generate_content(
-                model=model_name,
-                contents=score_prompt,
-            )
-            score_data = _parse_jsonish(getattr(score_response, "text", "{}"))
-            score = int(score_data.get("score", 10))
-            reason = score_data.get("reason", "")
-            print(f"  Virality Predictor Score: {score}/10 (Reason: {reason})", flush=True)
-        except Exception as e:
-            print(f"  Warning: Virality Predictor failed ({e}), accepting script anyway.", flush=True)
+            score = 10  # default pass if scoring fails
+            reason = ""
+            try:
+                score_response = client.models.generate_content(
+                    model=used_model,
+                    contents=score_prompt,
+                )
+                score_data = _parse_jsonish(getattr(score_response, "text", "{}"))
+                score = int(score_data.get("score", 10))
+                reason = score_data.get("reason", "")
+                print(f"  Virality Predictor Score: {score}/10 (Reason: {reason})", flush=True)
+            except Exception as e:
+                print(f"  Warning: Virality Predictor failed ({e}), accepting script anyway.", flush=True)
 
-        self._save_history(history_path, history, topic.topic_title)
-        return topic
+            # ENFORCE the quality gate — reject fake news and low-scoring scripts
+            if score < 7:
+                if generation_attempt < 3:
+                    print(f"  ❌ Script REJECTED (score {score}/10). Forcing a rewrite with feedback...", flush=True)
+                    base_prompt += f"\n\nCRITICAL REJECTION FEEDBACK: Your previous script was scored {score}/10 and REJECTED because: {reason}. You MUST fix this. Write a completely different, 100% FACTUAL story from the news feed. Do NOT hallucinate or fabricate ANY details."
+                    continue  # retry outer generation loop
+                else:
+                    print(f"  ⚠️ Score still {score}/10 after {generation_attempt} attempts — accepting best available script.", flush=True)
+
+            self._save_history(history_path, history, topic.topic_title)
+            return topic
+
+        # Should never reach here, but safety net
+        raise RuntimeError("Failed to generate a passing script after 3 attempts.")
 
     def _save_history(self, path: Path, history: list[str], new_topic: str) -> None:
         history.append(new_topic)
