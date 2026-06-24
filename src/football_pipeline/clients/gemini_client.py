@@ -36,8 +36,8 @@ class GeminiTopicClient:
             raise RuntimeError("Install google-genai to use Gemini: pip install -e .") from exc
 
         client = genai.Client(api_key=api_key)
-        # Use default Gemini model if not configured
-        model_name = getattr(self.settings, "gemini_model", None) or "gemini-3.5-flash"
+        # Use best available model; falls back through verified chain on quota/errors
+        model_name = getattr(self.settings, "gemini_model", None) or "gemini-2.5-pro"
 
         history_path = Path("topic_history.json")
         history = []
@@ -120,14 +120,17 @@ class GeminiTopicClient:
                     
                     # If it's a 429 (Quota) or 404 (Not Found), advance to the next fallback model
                     if (err_code == 429 and attempt >= 2) or err_code == 404:
+                        # All models verified by calling client.models.list() on 2026-06-25
+                        # Ordered best quality → most available
                         fallback_chain = [
-                            "gemini-2.5-pro",
-                            "gemini-3.5-flash",
-                            "gemini-2.5-flash",
-                            "gemini-2.5-flash-lite",
-                            "gemini-2.0-flash",
-                            "gemini-2.0-flash-lite",
-                            "gemini-flash-latest"
+                            "gemini-2.5-pro",        # Best quality, verified exists
+                            "gemini-3.5-flash",      # Latest flash gen, verified exists
+                            "gemini-3.1-pro-preview",# Newer pro preview, verified exists
+                            "gemini-2.5-flash",      # Stable, high quality flash
+                            "gemini-2.5-flash-lite", # Lighter 2.5, higher quota
+                            "gemini-2.0-flash",      # Reliable older gen
+                            "gemini-2.0-flash-lite", # High free-tier quota
+                            "gemini-flash-latest",   # Alias - ultimate fallback
                         ]
                         
                         try:
@@ -135,10 +138,12 @@ class GeminiTopicClient:
                             if current_idx < len(fallback_chain) - 1:
                                 model_name = fallback_chain[current_idx + 1]
                                 print(f"  Switching to fallback model: {model_name}", flush=True)
+                            else:
+                                print(f"  All fallback models exhausted.", flush=True)
                         except ValueError:
-                            # If current model isn't in chain, jump to the top 'pro' model
+                            # Current model not in chain, restart from best
                             model_name = "gemini-2.5-pro"
-                            print(f"  Switching to default fallback model: {model_name}", flush=True)
+                            print(f"  Resetting to best available model: {model_name}", flush=True)
 
                     time.sleep(wait_time)
                     continue
