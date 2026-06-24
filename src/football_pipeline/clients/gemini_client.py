@@ -113,8 +113,8 @@ class GeminiTopicClient:
             except genai.errors.APIError as exc:
                 if attempt < 10 and getattr(exc, 'code', 500) in (429, 503, 500, 502, 504):
                     import time
-                    wait_time = 30 * attempt
-                    print(f"  Gemini API error ({getattr(exc, 'code', 'unknown')}). High demand on {model_name}. Waiting {wait_time} seconds... (Attempt {attempt}/10)")
+                    wait_time = min(30, 5 * attempt)
+                    print(f"  Gemini API error ({getattr(exc, 'code', 'unknown')}). High demand on {model_name}. Waiting {wait_time} seconds... (Attempt {attempt}/10)", flush=True)
                     time.sleep(wait_time)
                     continue
                 raise

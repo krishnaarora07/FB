@@ -34,9 +34,9 @@ class GoogleTrendsClient:
 
         print("  Fetching Google Trends data...")
         
-        # Initialize pytrends with a generic English locale
+        # Initialize pytrends with a generic English locale and a strict timeout
         try:
-            pytrends = TrendReq(hl='en-US', tz=360)
+            pytrends = TrendReq(hl='en-US', tz=360, timeout=(10, 25))
         except Exception as e:
             print(f"  Warning: Failed to initialize pytrends: {e}")
             return []
