@@ -103,21 +103,22 @@ class GeminiTopicClient:
         target_length = max(30, self.settings.script_seconds)
 
         base_prompt = self._build_prompt(videos, history, analytics_str, trends, news, target_length, hook_pressure, search_terms, viral_seeds, proven_hashtags)
-        # All verified models ordered best quality → most available (verified 2026-06-25)
+
+        # Verified accessible models on free tier, ordered best quality → most quota available
         fallback_chain = [
-            "gemini-2.5-pro",        # Best quality
-            "gemini-3.5-flash",      # Latest flash gen
-            "gemini-3.1-pro-preview",# Newer pro preview
-            "gemini-2.5-flash",      # Stable, high quality flash
-            "gemini-2.5-flash-lite", # Lighter 2.5, higher quota
-            "gemini-2.0-flash",      # Reliable older gen
-            "gemini-2.0-flash-lite", # High free-tier quota
-            "gemini-flash-latest",   # Alias - ultimate fallback
+            "gemini-2.5-pro",        # Best quality (2 RPM free tier)
+            "gemini-2.5-flash",      # Best balance of quality + quota
+            "gemini-2.5-flash-lite", # Higher quota, lighter
+            "gemini-2.0-flash",      # Reliable fallback
+            "gemini-2.0-flash-lite", # Highest free-tier quota
         ]
 
         # Ensure starting model is in the chain; if not, prepend it
         if model_name not in fallback_chain:
             fallback_chain = [model_name] + fallback_chain
+
+        # Track quota-exhausted models across ALL generation attempts so we never retry them
+        quota_exhausted = set()
 
         # Outer loop: retry topic generation if virality score is too low
         for generation_attempt in range(1, 4):  # max 3 topic generations
@@ -125,12 +126,17 @@ class GeminiTopicClient:
             if generation_attempt > 1:
                 print(f"  Retrying topic generation (attempt {generation_attempt}/3)...", flush=True)
 
-            # Inner loops: try each model with up to 5 retries each
+            # Build the effective chain for this attempt — skip exhausted models
+            active_chain = [m for m in fallback_chain if m not in quota_exhausted]
+            if not active_chain:
+                raise RuntimeError("All Gemini models hit quota limits. Try again tomorrow or upgrade your plan.")
+
             response = None
             used_model = model_name
-            for candidate_model in fallback_chain:
+            for candidate_model in active_chain:
                 print(f"  Trying model: {candidate_model}", flush=True)
-                for attempt in range(1, 6):  # 5 attempts per model
+                model_succeeded = False
+                for attempt in range(1, 4):  # Max 3 attempts per model (not 5 — fail faster)
                     try:
                         from google.genai import types as genai_types
                         response = client.models.generate_content(
@@ -142,22 +148,29 @@ class GeminiTopicClient:
                             )
                         )
                         used_model = candidate_model
+                        model_succeeded = True
                         break  # success — exit inner retry loop
                     except genai.errors.APIError as exc:
-                        import time
                         err_code = getattr(exc, 'code', 500)
 
                         if err_code == 404:
-                            print(f"  Model {candidate_model} not found (404), skipping.", flush=True)
+                            print(f"  Model {candidate_model} not found (404), skipping permanently.", flush=True)
+                            quota_exhausted.add(candidate_model)
                             break
-                        elif err_code in (429, 503, 500, 502, 504):
+                        elif err_code == 429:
+                            # Quota exhausted — no point retrying, move on immediately
+                            print(f"  Model {candidate_model} quota exhausted (429), skipping permanently.", flush=True)
+                            quota_exhausted.add(candidate_model)
+                            break
+                        elif err_code in (503, 500, 502, 504):
+                            # Transient server error — worth retrying with backoff
                             wait_time = min(10, 5 * attempt)
-                            print(f"  Gemini API error ({err_code}) on {candidate_model}. Waiting {wait_time}s... (attempt {attempt}/5)", flush=True)
+                            print(f"  Gemini API error ({err_code}) on {candidate_model}. Waiting {wait_time}s... (attempt {attempt}/3)", flush=True)
                             time.sleep(wait_time)
                         else:
                             raise  # Unknown error — don't retry
-                else:
-                    print(f"  Model {candidate_model} exhausted all retries. Trying next fallback...", flush=True)
+
+                if not model_succeeded:
                     response = None
                     continue
 
@@ -165,8 +178,10 @@ class GeminiTopicClient:
                     break  # exit model loop on success
 
             if response is None:
+                exhausted_str = ", ".join(quota_exhausted) if quota_exhausted else "none logged"
                 raise RuntimeError(
-                    "All Gemini models exhausted after multiple retries. Check your API key and quota."
+                    f"All Gemini models exhausted. Quota-hit models: [{exhausted_str}]. "
+                    "Daily limits reset at midnight Pacific. Check https://aistudio.google.com/app/quotas"
                 )
 
             # Parse response
