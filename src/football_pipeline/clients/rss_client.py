@@ -26,22 +26,13 @@ class RSSClient:
         "Football Italia": "https://www.football-italia.net/feed/",
     }
 
-    # Tier 2 — viral/drama content, may include unconfirmed rumours
-    RUMOUR_FEEDS = {
-        "Caught Offside":  "https://www.caughtoffside.com/feed/",
-        "Mirror Football": "https://www.mirror.co.uk/sport/football/rss.xml",
-        "90min":           "https://www.90min.com/posts.rss",
-        "Planet Football": "https://www.planetfootball.com/feed/",
-        "TalkSPORT":       "https://talksport.com/feed/",
-    }
-
     def fetch_news(self, limit_per_feed: int = 15) -> List[NewsItem]:
-        total_sources = len(self.VERIFIED_FEEDS) + len(self.RUMOUR_FEEDS)
-        print(f"  Fetching real-time football news from {total_sources} sources ({', '.join(list(self.VERIFIED_FEEDS.keys())[:3])}...)", flush=True)
+        total_sources = len(self.VERIFIED_FEEDS)
+        print(f"  Fetching real-time football news from {total_sources} reliable sources ({', '.join(list(self.VERIFIED_FEEDS.keys())[:3])}...)", flush=True)
         all_news: List[NewsItem] = []
         successful = 0
 
-        for tier_label, feeds in [("VERIFIED", self.VERIFIED_FEEDS), ("RUMOUR", self.RUMOUR_FEEDS)]:
+        for tier_label, feeds in [("VERIFIED", self.VERIFIED_FEEDS)]:
             for source_name, url in feeds.items():
                 try:
                     req = urllib.request.Request(
