@@ -104,9 +104,9 @@ class GeminiTopicClient:
         prompt = self._build_prompt(videos, history, analytics_str, trends, news, target_length, hook_pressure, search_terms, viral_seeds, proven_hashtags)
         # Retry up to three times if Gemini returns an empty response, 429 rate limit, or low virality score
         for attempt in range(1, 5):
-            current_model = model_name if attempt < 3 else "gemini-2.0-flash"
+            current_model = model_name if attempt < 3 else "gemini-3.5-flash"
             if attempt == 3:
-                print("  Falling back to gemini-2.0-flash due to high demand...")
+                print("  Retrying on gemini-3.5-flash despite high demand...")
             try:
                 response = client.models.generate_content(
                     model=current_model,
