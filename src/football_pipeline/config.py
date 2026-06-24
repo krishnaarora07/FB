@@ -55,7 +55,7 @@ class Settings:
         return cls(
             youtube_api_key=os.getenv("YOUTUBE_API_KEY"),
             gemini_api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"),
-            gemini_model=os.getenv("GEMINI_MODEL", "gemini-3.5-flash"),
+            gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.5-pro"),
             giphy_api_key=os.getenv("GIPHY_API_KEY"),
             youtube_client_secrets_file=Path(os.getenv("YOUTUBE_CLIENT_SECRETS_FILE", "client_secret.json")),
             youtube_token_file=Path(os.getenv("YOUTUBE_TOKEN_FILE", "token.json")),
