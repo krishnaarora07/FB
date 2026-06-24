@@ -132,9 +132,14 @@ class GeminiTopicClient:
                 print(f"  Trying model: {candidate_model}", flush=True)
                 for attempt in range(1, 6):  # 5 attempts per model
                     try:
+                        from google.genai import types as genai_types
                         response = client.models.generate_content(
                             model=candidate_model,
                             contents=prompt,
+                            config=genai_types.GenerateContentConfig(
+                                temperature=0.2,  # Low = less hallucination
+                                top_p=0.8,
+                            )
                         )
                         used_model = candidate_model
                         break  # success — exit inner retry loop
@@ -189,6 +194,25 @@ class GeminiTopicClient:
                     elif "broll_query" in seg:
                         bq.append(seg["broll_query"])
                 data["broll_queries"] = bq
+
+            # --- Citation Validation --- 
+            # Check that the cited headline actually exists in the news feed
+            cited_headline = data.get("source_headline", "")
+            if cited_headline and news:
+                news_titles_lower = [n.title.lower() for n in news]
+                cited_words = cited_headline.lower().split()
+                # Check if at least the first 4 words of the citation match any headline
+                key_words = cited_words[:4]
+                match_found = any(
+                    all(w in title for w in key_words) for title in news_titles_lower
+                ) if key_words else False
+                if not match_found:
+                    print(f"  ⚠️ Hallucination risk: cited headline not found in news feed. Sending to virality gate.", flush=True)
+                else:
+                    print(f"  ✅ Citation verified in news feed.", flush=True)
+            elif not cited_headline:
+                print(f"  ⚠️ No source_headline cited — Gemini did not anchor to a news story.", flush=True)
+
             topic = TopicPackage.from_dict(data)
 
             # --- Virality Predictor Quality Gate ---
@@ -207,9 +231,13 @@ Score criteria:
             score = 10  # default pass if scoring fails
             reason = ""
             try:
+                from google.genai import types as genai_types
                 score_response = client.models.generate_content(
                     model=used_model,
                     contents=score_prompt,
+                    config=genai_types.GenerateContentConfig(
+                        temperature=0.0,  # Fully deterministic for scoring
+                    )
                 )
                 score_data = _parse_jsonish(getattr(score_response, "text", "{}"))
                 score = int(score_data.get("score", 10))
@@ -302,14 +330,28 @@ Today is {date.today().isoformat()}.
 {analytics_str}
 {trends_str}
 {news_str}
-Your task is to analyze the provided LIVE BREAKING NEWS and produce a complete, ready-to-publish short-form video package based on ONE highly trending football topic.
+Your task is to produce a complete, ready-to-publish YouTube Shorts video package based on ONE story from the news feed above.
+
+⚠️ ANTI-HALLUCINATION CONTRACT — READ CAREFULLY ⚠️
+You are bound to these rules. Breaking ANY of them = automatic score of 0 and rejection:
+1. Base your script on ONE story explicitly present in the LIVE FOOTBALL NEWS FEED above.
+2. Do NOT invent, extrapolate, or add ANY details not stated in the news item. No fabricated scores, quotes, bans, injuries, transfers or statistics.
+3. Do NOT combine details from two different stories into one fictional narrative.
+4. [RUMOUR] sources: use hedged language only: "reportedly", "sources claim", "according to reports". NEVER state as fact.
+5. If unsure of a detail — leave it out. A shorter, factual script is better than a longer hallucinated one.
+
+FORBIDDEN (score 0):
+✗ Adding injuries/bans/scores not in the news item
+✗ Inventing player quotes
+✗ Mixing two players from different articles into one story
+✗ Any statistic you cannot directly copy from the news text
 
 ═══════════════════════════════════════════
 1. TOPIC SELECTION & FACTUAL ACCURACY
 ═══════════════════════════════════════════
-- Select ONE highly trending football story EXCLUSIVELY from the LIVE BREAKING NEWS section above.
-- Use the TREND SIGNALS and GOOGLE SEARCH TRENDS to decide *which* of the live news stories will go the most viral, but the facts of the story MUST come from the news feed.
-- STRICT FACTUAL ACCURACY: You are a journalistic channel. You MUST NOT invent fake quotes, fake transfer rumors, or fake news. All statistics, event details, and stories must be 100% true based on the provided live news. Do NOT hallucinate.
+- Select ONE story EXCLUSIVELY from the LIVE FOOTBALL NEWS FEED above.
+- Pick the story most likely to go viral based on TREND SIGNALS, but ALL facts MUST come verbatim from that news item.
+- If no exciting story exists, pick the most interesting factual one — do NOT add drama that isn't there.
 
 ═══════════════════════════════════════════
 2. SCRIPT WRITING & PACING
@@ -334,19 +376,22 @@ Our visual engine strictly uses GIPHY to download short video clips.
 ═══════════════════════════════════════════
 4. OUTPUT FORMAT (STRICT JSON)
 ═══════════════════════════════════════════
-Return this exact JSON shape with NO extra text before or after:
+Return ONLY this exact JSON with NO extra text before or after:
 {{
+  "source_headline": "EXACT headline copied word-for-word from the news feed this script is based on",
   "topic_title": "short descriptive topic name (max 8 words)",
   "angle": "one sentence explaining why this topic is currently trending",
   "visual_segments": [
-    {{"text": "First sentence of the script...", "broll_queries": ["Ronaldo celebrating goal", "Portugal fans cheering"]}},
-    {{"text": "Second sentence of the script...", "broll_queries": ["football fan crying", "sad soccer player"]}}
+    {{"text": "First sentence of the script...", "broll_queries": ["keyword1", "keyword2"]}},
+    {{"text": "Second sentence...", "broll_queries": ["keyword1", "keyword2"]}}
   ],
   "youtube_title": "viral upload title under 95 chars with a relevant emoji",
   "youtube_description": "2-3 engaging sentences naturally weaving in SEO keywords (player names, teams, 'Football Shorts').",
   "hashtags": {hashtag_instructions},
-  "is_breaking_news": false // True ONLY if the event happened in the last 24-48 hours
+  "is_breaking_news": false
 }}
+
+MANDATORY: The "source_headline" field must be the EXACT headline from the news feed. This is used to verify you did not hallucinate.
 
 ═══════════════════════════════════════════
 TREND SIGNALS (YouTube metadata — use as topic inspiration)
