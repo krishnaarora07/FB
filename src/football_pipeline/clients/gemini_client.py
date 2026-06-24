@@ -114,7 +114,17 @@ class GeminiTopicClient:
                 if attempt < 10 and getattr(exc, 'code', 500) in (429, 503, 500, 502, 504):
                     import time
                     wait_time = min(30, 5 * attempt)
-                    print(f"  Gemini API error ({getattr(exc, 'code', 'unknown')}). High demand on {model_name}. Waiting {wait_time} seconds... (Attempt {attempt}/10)", flush=True)
+                    print(f"  Gemini API error ({getattr(exc, 'code', 'unknown')}) on {model_name}. Waiting {wait_time}s...", flush=True)
+                    
+                    # If it's a 429 Quota error, try falling back to older/lighter models
+                    if getattr(exc, 'code', 500) == 429 and attempt >= 3:
+                        if model_name == "gemini-3.5-flash":
+                            model_name = "gemini-2.0-flash"
+                            print(f"  Switching to fallback model: {model_name}", flush=True)
+                        elif model_name == "gemini-2.0-flash":
+                            model_name = "gemini-1.5-flash"
+                            print(f"  Switching to fallback model: {model_name}", flush=True)
+
                     time.sleep(wait_time)
                     continue
                 raise
