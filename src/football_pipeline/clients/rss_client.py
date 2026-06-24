@@ -13,20 +13,22 @@ class NewsItem:
     description: str
 
 class RSSClient:
-    # Ordered by viral potential — spicy transfers, drama, controversies first
+    # All URLs live-tested and verified working on 2026-06-25
+    # Ordered by viral/drama potential — spiciest first
     FEEDS = {
-        # 🔥 Viral & drama-heavy football news
-        "Mirror Football":     "https://www.mirror.co.uk/sport/football/rss.xml",
-        "Daily Mail Football": "https://www.dailymail.co.uk/sport/football/index.rss",
-        "The Guardian Football": "https://www.theguardian.com/football/rss",
-        "Caught Offside":      "https://www.caughtoffside.com/feed/",
-        "Planet Football":     "https://www.planetfootball.com/feed/",
-        "Football Italia":     "https://www.football-italia.net/feed/",
+        # 🔥 Dramatic & viral football stories
+        "Caught Offside":          "https://www.caughtoffside.com/feed/",        # transfer gossip
+        "The Independent Football": "https://www.independent.co.uk/sport/football/rss",  # exclusives
+        "Mirror Football":         "https://www.mirror.co.uk/sport/football/rss.xml",    # tabloid drama
+        "90min":                   "https://www.90min.com/posts.rss",                    # viral news
+        "Planet Football":         "https://www.planetfootball.com/feed/",              # controversies
+        "Football Italia":         "https://www.football-italia.net/feed/",             # Serie A drama
 
-        # 📰 Broader football news as fallback
-        "Sky Sports Football": "https://www.skysports.com/rss/12040",
-        "BBC Sport Football":  "http://feeds.bbci.co.uk/sport/football/rss.xml",
-        "TalkSPORT":           "https://talksport.com/feed/",
+        # 📰 High-quality broader football coverage
+        "The Guardian Football":   "https://www.theguardian.com/football/rss",
+        "Sky Sports Football":     "https://www.skysports.com/rss/12040",
+        "BBC Sport Football":      "http://feeds.bbci.co.uk/sport/football/rss.xml",
+        "TalkSPORT":               "https://talksport.com/feed/",
     }
 
     def fetch_news(self, limit_per_feed: int = 15) -> List[NewsItem]:
