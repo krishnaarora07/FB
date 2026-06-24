@@ -143,7 +143,7 @@ class GeminiTopicClient:
                             model=candidate_model,
                             contents=prompt,
                             config=genai_types.GenerateContentConfig(
-                                temperature=0.2,  # Low = less hallucination
+                                temperature=0.5,  # Increased for more engaging scripts since sources are now verified
                                 top_p=0.8,
                             )
                         )
