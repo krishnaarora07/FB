@@ -103,21 +103,19 @@ class GeminiTopicClient:
 
         prompt = self._build_prompt(videos, history, analytics_str, trends, news, target_length, hook_pressure, search_terms, viral_seeds, proven_hashtags)
         # Retry up to three times if Gemini returns an empty response, 429 rate limit, or low virality score
-        for attempt in range(1, 5):
-            current_model = model_name if attempt < 3 else "gemini-3.5-flash"
-            if attempt == 3:
-                print("  Retrying on gemini-3.5-flash despite high demand...")
+        for attempt in range(1, 11):
             try:
                 response = client.models.generate_content(
-                    model=current_model,
+                    model=model_name,
                     contents=prompt,
                 )
                 break
             except genai.errors.APIError as exc:
-                if attempt < 4 and getattr(exc, 'code', 500) in (429, 503, 500, 502, 504):
+                if attempt < 10 and getattr(exc, 'code', 500) in (429, 503, 500, 502, 504):
                     import time
-                    print(f"  Gemini API error ({getattr(exc, 'code', 'unknown')}). Waiting 45 seconds... (Attempt {attempt}/4)")
-                    time.sleep(45)
+                    wait_time = 30 * attempt
+                    print(f"  Gemini API error ({getattr(exc, 'code', 'unknown')}). High demand on {model_name}. Waiting {wait_time} seconds... (Attempt {attempt}/10)")
+                    time.sleep(wait_time)
                     continue
                 raise
 
