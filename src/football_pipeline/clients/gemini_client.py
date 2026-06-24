@@ -66,9 +66,9 @@ class GeminiTopicClient:
                         analytics_str = "\n═══════════════════════════════════════════\nANALYTICS FEEDBACK — Learn from your past videos!\n═══════════════════════════════════════════\n"
                         analytics_str += "Here is how your recent videos performed. If a topic got high views/comments, DO MORE OF THAT. If it tanked, DO LESS.\n"
                         for sv in stats_videos:
-                            matching_item = next((item for item in last_3 if item.get("video_id") == sv.id), None)
+                            matching_item = next((item for item in last_3 if item.get("video_id") == sv.video_id), None)
                             title = matching_item.get("topic_title", sv.title) if matching_item else sv.title
-                            analytics_str += f"- Topic: '{title}' -> Views: {sv.views}, Likes: {sv.likes}, Comments: {sv.comments}\n"
+                            analytics_str += f"- Topic: '{title}' -> Views: {sv.views if hasattr(sv, 'views') else sv.view_count}, Likes: {sv.likes if hasattr(sv, 'likes') else sv.like_count}, Comments: {sv.comments if hasattr(sv, 'comments') else sv.comment_count}\n"
                             
             except Exception as exc:
                 print(f"  Warning: Failed to fetch analytics feedback: {exc}")
@@ -103,17 +103,21 @@ class GeminiTopicClient:
 
         prompt = self._build_prompt(videos, history, analytics_str, trends, news, target_length, hook_pressure, search_terms, viral_seeds, proven_hashtags)
         # Retry up to three times if Gemini returns an empty response, 429 rate limit, or low virality score
-        for attempt in range(1, 4):
+        for attempt in range(1, 5):
+            current_model = model_name if attempt < 3 else "gemini-2.0-flash"
+            if attempt == 3:
+                print("  Falling back to gemini-2.0-flash due to high demand...")
             try:
                 response = client.models.generate_content(
-                    model=model_name,
+                    model=current_model,
                     contents=prompt,
                 )
+                break
             except genai.errors.APIError as exc:
-                if attempt < 3 and getattr(exc, 'code', 500) in (429, 503, 500, 502, 504):
+                if attempt < 4 and getattr(exc, 'code', 500) in (429, 503, 500, 502, 504):
                     import time
-                    print(f"  Gemini API error ({getattr(exc, 'code', 'unknown')}). Waiting 35 seconds... (Attempt {attempt}/3)")
-                    time.sleep(35)
+                    print(f"  Gemini API error ({getattr(exc, 'code', 'unknown')}). Waiting 45 seconds... (Attempt {attempt}/4)")
+                    time.sleep(45)
                     continue
                 raise
 

@@ -24,7 +24,10 @@ class RSSClient:
         all_news = []
         for source_name, url in self.FEEDS.items():
             try:
-                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                req = urllib.request.Request(
+                    url, 
+                    headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+                )
                 with urllib.request.urlopen(req, timeout=10) as response:
                     xml_data = response.read()
                 
@@ -40,6 +43,7 @@ class RSSClient:
                     desc = desc_elem.text if desc_elem is not None else ""
                     
                     if title:
+                        desc = (desc_elem.text or "") if desc_elem is not None else ""
                         desc = re.sub(r'<[^>]+>', '', desc) # strip HTML if any
                         all_news.append(NewsItem(source=source_name, title=title.strip(), description=desc.strip()))
                         count += 1
