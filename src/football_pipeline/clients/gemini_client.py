@@ -115,7 +115,7 @@ class GeminiTopicClient:
                 
                 if attempt < 10 and err_code in (429, 503, 500, 502, 504, 404):
                     import time
-                    wait_time = min(30, 5 * attempt)
+                    wait_time = min(10, 5 * attempt)
                     print(f"  Gemini API error ({err_code}) on {model_name}. Waiting {wait_time}s...", flush=True)
                     
                     # If it's a 429 (Quota) or 404 (Not Found), advance to the next fallback model
