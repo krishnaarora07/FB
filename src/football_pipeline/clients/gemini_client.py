@@ -269,8 +269,15 @@ Score criteria:
                 
         news_str = ""
         if news:
-            news_str = "\n═══════════════════════════════════════════\nLIVE BREAKING NEWS (REAL SOURCE OF TRUTH)\n═══════════════════════════════════════════\n"
-            news_str += "You MUST choose a story from these REAL live news items. DO NOT invent stories. DO NOT hallucinate events that aren't mentioned here.\n"
+            news_str = "\n═══════════════════════════════════════════\nLIVE FOOTBALL NEWS FEED\n═══════════════════════════════════════════\n"
+            news_str += (
+                "Sources are tagged [VERIFIED] or [RUMOUR].\n"
+                "- [VERIFIED] = confirmed by reputable journalism (BBC, Guardian, Sky, Independent). "
+                "You MAY state these as confirmed facts.\n"
+                "- [RUMOUR] = tabloid/gossip speculation, not independently confirmed. "
+                "You MUST frame these as 'reportedly', 'sources claim', or 'according to reports' — NEVER as confirmed fact.\n"
+                "You MUST choose a story from this feed. DO NOT invent or hallucinate ANY details not present here.\n\n"
+            )
             for n in news[:30]:
                 news_str += f"- [{n.source}] {n.title}\n  Summary: {n.description}\n"
 
