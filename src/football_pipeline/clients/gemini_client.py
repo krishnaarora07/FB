@@ -121,16 +121,13 @@ class GeminiTopicClient:
                     # If it's a 429 (Quota) or 404 (Not Found), advance to the next fallback model
                     if (err_code == 429 and attempt >= 2) or err_code == 404:
                         fallback_chain = [
-                            "gemini-3.5-pro",
-                            "gemini-3.5-flash",
                             "gemini-2.5-pro",
+                            "gemini-3.5-flash",
                             "gemini-2.5-flash",
-                            "gemini-2.0-pro",
+                            "gemini-2.5-flash-lite",
                             "gemini-2.0-flash",
-                            "gemini-1.5-pro",
-                            "gemini-1.5-flash",
                             "gemini-2.0-flash-lite",
-                            "gemini-1.5-flash-8b"
+                            "gemini-flash-latest"
                         ]
                         
                         try:
@@ -140,7 +137,7 @@ class GeminiTopicClient:
                                 print(f"  Switching to fallback model: {model_name}", flush=True)
                         except ValueError:
                             # If current model isn't in chain, jump to the top 'pro' model
-                            model_name = "gemini-3.5-pro"
+                            model_name = "gemini-2.5-pro"
                             print(f"  Switching to default fallback model: {model_name}", flush=True)
 
                     time.sleep(wait_time)
