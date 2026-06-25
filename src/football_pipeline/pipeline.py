@@ -127,7 +127,9 @@ class FootballPipeline:
             "topic_title": topic.topic_title,
             "youtube_title": topic.youtube_title,
             "scheduled_for": scheduled_for,
-            "hashtags": topic.hashtags
+            "hashtags": topic.hashtags,
+            "viral_story_type": getattr(topic, "viral_story_type", ""),
+            "debate_bait_comment": getattr(topic, "debate_bait_comment", ""),
         })
         history_path.write_text(json.dumps(history[-50:], indent=2, ensure_ascii=False), encoding="utf-8")
         

@@ -2,123 +2,193 @@ name: Daily Football Pipeline
 
 on:
   schedule:
-    # 3:30 AM IST (Americas Peak)
+    # ── 3:30 AM IST = 10:00 PM UTC (prev day) ── Americas late-night peak
     - cron: '0 22 * * *'
-    # 7:00 PM IST (India/Middle East Peak)
+    # ── 9:00 AM IST = 3:30 AM UTC ── India morning peak (post match-result searches)
+    - cron: '30 3 * * *'
+    # ── 7:00 PM IST = 1:30 PM UTC ── Europe afternoon / India evening peak
     - cron: '30 13 * * *'
-    # 10:30 PM IST (Europe Peak)
+    # ── 10:30 PM IST = 5:00 PM UTC ── Global prime time (highest YouTube Shorts traffic)
     - cron: '0 17 * * *'
-  workflow_dispatch: # Allows manual trigger from the Actions tab
+  workflow_dispatch:   # ← Manual trigger from the Actions tab at any time
 
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
+    timeout-minutes: 60          # kill hung runs after 1 hour
     permissions:
-      contents: write
+      contents: write            # needed to push history back to main
+
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       PYTHONUNBUFFERED: "1"
 
     steps:
+      # ─────────────────────────────────────────
+      # 1. CHECKOUT
+      # ─────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # Always fetch latest main so history files are current
+          fetch-depth: 1
 
-      - name: Set up Python
+      # ─────────────────────────────────────────
+      # 2. PYTHON SETUP
+      # ─────────────────────────────────────────
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - name: Install system dependencies
+      # ─────────────────────────────────────────
+      # 3. SYSTEM DEPENDENCIES
+      # ─────────────────────────────────────────
+      - name: Install system dependencies (ffmpeg + fonts)
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg fonts-dejavu-core fontconfig
           fc-cache -fv
           echo "=== FFmpeg version ==="
           ffmpeg -version | head -1
-          echo "=== DejaVu fonts installed ==="
+          echo "=== DejaVu fonts ==="
           fc-list | grep -i dejavu | head -5
 
+      # ─────────────────────────────────────────
+      # 4. PYTHON DEPENDENCIES
+      # ─────────────────────────────────────────
       - name: Install Python dependencies
         run: |
+          pip install --upgrade pip
           pip install numpy cython
           pip install pkuseg --no-build-isolation
           pip install -e .
 
+      # ─────────────────────────────────────────
+      # 5. MODEL CACHES (persist across runs = no re-download)
+      # ─────────────────────────────────────────
       - name: Cache rembg u2net models
         uses: actions/cache@v4
         with:
           path: ~/.u2net
           key: ${{ runner.os }}-u2net
-          restore-keys: |
-            ${{ runner.os }}-u2net
+          restore-keys: ${{ runner.os }}-u2net
 
-      - name: Cache HuggingFace models (Chatterbox TTS)
+      - name: Cache HuggingFace / Chatterbox TTS models
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface/hub
           key: ${{ runner.os }}-huggingface-models
-          restore-keys: |
-            ${{ runner.os }}-huggingface-models
+          restore-keys: ${{ runner.os }}-huggingface-models
 
-      - name: Cache Whisper models (Subtitle Sync)
+      - name: Cache Whisper subtitle-sync models
         uses: actions/cache@v4
         with:
           path: ~/.cache/whisper
           key: ${{ runner.os }}-whisper-models
-          restore-keys: |
-            ${{ runner.os }}-whisper-models
+          restore-keys: ${{ runner.os }}-whisper-models
 
-      - name: Create .env from secrets
+      # ─────────────────────────────────────────
+      # 6. SECRETS → FILES
+      # ─────────────────────────────────────────
+      - name: Write .env from GitHub Secrets
         run: |
-          printf 'YOUTUBE_API_KEY=%s\n' '${{ secrets.YOUTUBE_API_KEY }}' > .env
-          printf 'GEMINI_API_KEY=%s\n' '${{ secrets.GEMINI_API_KEY }}' >> .env
-          printf 'GEMINI_MODEL=gemini-3.5-flash\n' >> .env
-          printf 'GIPHY_API_KEY=%s\n' '${{ secrets.GIPHY_API_KEY }}' >> .env
-          printf 'AFFILIATE_LINK_AMAZON=%s\n' '${{ secrets.AFFILIATE_LINK_AMAZON }}' >> .env
-          printf 'AFFILIATE_LINK_AMAZON_2=%s\n' '${{ secrets.AFFILIATE_LINK_AMAZON_2 }}' >> .env
-          printf 'AFFILIATE_LINK_FANATICS=%s\n' '${{ secrets.AFFILIATE_LINK_FANATICS }}' >> .env
-          printf 'YOUTUBE_CLIENT_SECRETS_FILE=client_secret.json\n' >> .env
-          printf 'YOUTUBE_TOKEN_FILE=token.json\n' >> .env
-          printf 'YOUTUBE_UPLOAD_PRIVACY_STATUS=public\n' >> .env
-          printf 'YOUTUBE_UPLOAD_CATEGORY_ID=17\n' >> .env
-          printf 'FIFA_CHANNEL_HANDLE=@FIFA\n' >> .env
-          printf 'OUTPUT_DIR=runs\n' >> .env
-          printf 'SCRIPT_SECONDS=45\n' >> .env
-          printf 'MAX_SIGNALS_FOR_GEMINI=10\n' >> .env
-          echo "=== .env written (keys only) ==="
-          cut -d= -f1 .env
+          cat > .env << 'ENVEOF'
+          YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }}
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL=gemini-2.5-pro
+          GIPHY_API_KEY=${{ secrets.GIPHY_API_KEY }}
+          AFFILIATE_LINK_AMAZON=${{ secrets.AFFILIATE_LINK_AMAZON }}
+          AFFILIATE_LINK_AMAZON_2=${{ secrets.AFFILIATE_LINK_AMAZON_2 }}
+          AFFILIATE_LINK_FANATICS=${{ secrets.AFFILIATE_LINK_FANATICS }}
+          YOUTUBE_CLIENT_SECRETS_FILE=client_secret.json
+          YOUTUBE_TOKEN_FILE=token.json
+          YOUTUBE_UPLOAD_PRIVACY_STATUS=public
+          YOUTUBE_UPLOAD_CATEGORY_ID=17
+          FIFA_CHANNEL_HANDLE=@FIFA
+          YOUTUBE_TREND_REGIONS=US,GB,IN
+          MAX_TRENDING_PER_REGION=25
+          MAX_FIFA_UPLOADS=25
+          OUTPUT_DIR=runs
+          SCRIPT_SECONDS=50
+          MAX_SIGNALS_FOR_GEMINI=35
+          ENVEOF
+          echo "=== .env keys written ==="
+          grep -o '^[^=]*' .env
 
-      - name: Create YouTube secrets from GitHub Secrets
-        env:
-          COOKIES: ${{ secrets.YOUTUBE_COOKIES_TXT }}
+      - name: Write YouTube OAuth credentials from GitHub Secrets
         run: |
           echo '${{ secrets.YOUTUBE_CLIENT_SECRETS_JSON }}' > client_secret.json
-          echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > token.json
-          if [ -n "$COOKIES" ]; then
-            echo "$COOKIES" > cookies.txt
+          echo '${{ secrets.YOUTUBE_TOKEN_JSON }}'          > token.json
+          # Optional: yt-dlp cookies for B-roll discovery
+          if [ -n '${{ secrets.YOUTUBE_COOKIES_TXT }}' ]; then
+            echo '${{ secrets.YOUTUBE_COOKIES_TXT }}' > cookies.txt
           fi
+          echo "=== OAuth files written ==="
+          ls -la client_secret.json token.json
 
-      - name: Run pipeline
-        run: football-pipeline run --render --upload --cleanup
+      # ─────────────────────────────────────────
+      # 7. RESTORE HISTORY FILES
+      #    Pull topic_history.json & upload_history.json so the pipeline
+      #    knows which topics were already covered and can do analytics.
+      # ─────────────────────────────────────────
+      - name: Restore history files from repo
+        run: |
+          echo "topic_history.json lines: $(wc -l < topic_history.json 2>/dev/null || echo 0)"
+          echo "upload_history.json lines: $(wc -l < upload_history.json 2>/dev/null || echo 0)"
 
-      - name: Save topic history to repo
+      # ─────────────────────────────────────────
+      # 8. RUN PIPELINE (full: collect → ideate → broll → voiceover → render → upload)
+      # ─────────────────────────────────────────
+      - name: Run football pipeline
+        run: |
+          echo "=== Pipeline starting at $(date -u) ==="
+          football-pipeline run --render --upload --cleanup
+          echo "=== Pipeline finished at $(date -u) ==="
+
+      # ─────────────────────────────────────────
+      # 9. AUTO REPLY TO FAN COMMENTS
+      #    Runs on the last 3 uploaded videos using Gemini.
+      #    Runs even if the pipeline step succeeded (always: true) so
+      #    comment replies happen even on re-runs.
+      # ─────────────────────────────────────────
+      - name: Auto-reply to fan comments (Gemini)
         if: always()
         run: |
-          if [ ! -f topic_history.json ] && [ ! -f upload_history.json ]; then
-            echo "No history files found, skipping."
+          echo "=== Replying to fan comments ==="
+          football-pipeline reply-comments || echo "Comment reply step failed — continuing."
+
+      # ─────────────────────────────────────────
+      # 10. SAVE HISTORY BACK TO REPO
+      #     Commits topic_history.json + upload_history.json back to main
+      #     so the next run picks them up via checkout.
+      # ─────────────────────────────────────────
+      - name: Save history files back to repo
+        if: always()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          CHANGED=0
+          if [ -f topic_history.json ];  then git add topic_history.json;  CHANGED=1; fi
+          if [ -f upload_history.json ]; then git add upload_history.json; CHANGED=1; fi
+
+          if [ "$CHANGED" = "0" ]; then
+            echo "No history files to commit."
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          if [ -f topic_history.json ]; then
-            git add topic_history.json
+
+          # Only commit if there are actual changes
+          if git diff --staged --quiet; then
+            echo "History files unchanged — nothing to commit."
+            exit 0
           fi
-          if [ -f upload_history.json ]; then
-            git add upload_history.json
-          fi
-          git diff --staged --quiet && echo "No history changes to commit." && exit 0
-          git commit -m "chore: save pipeline history [skip ci]"
+
+          git commit -m "chore: update pipeline history [skip ci]"
+
+          # Rebase so concurrent runs don't conflict
           git pull --rebase --autostash origin main
           git push origin HEAD:main
+          echo "=== History committed and pushed ==="

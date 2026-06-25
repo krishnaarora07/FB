@@ -108,7 +108,37 @@ class YouTubeUploader:
                 ).execute()
             except Exception as e:
                 print(f"  Warning: Failed to post affiliate comment: {e}")
-                
+
+        # Auto-pin the debate bait comment immediately after upload.
+        # This seeds early engagement before any viewer comments arrive.
+        debate_comment = getattr(topic, "debate_bait_comment", "") or ""
+        if debate_comment.strip():
+            try:
+                print(f"  📌 Auto-pinning debate comment: '{debate_comment}'")
+                thread_response = youtube.commentThreads().insert(
+                    part="snippet",
+                    body={
+                        "snippet": {
+                            "videoId": video_id,
+                            "topLevelComment": {
+                                "snippet": {
+                                    "textOriginal": debate_comment.strip()
+                                }
+                            }
+                        }
+                    }
+                ).execute()
+                # Pin it (mark as top comment via moderateCommentThread)
+                thread_id = thread_response.get("id", "")
+                if thread_id:
+                    youtube.comments().setModerationStatus(
+                        id=thread_response["snippet"]["topLevelComment"]["id"],
+                        moderationStatus="published",
+                    ).execute()
+                print(f"  ✅ Debate comment posted successfully.")
+            except Exception as e:
+                print(f"  Warning: Failed to post debate bait comment: {e}")
+
         return video_id, published_at_str
 
     def _description(self, topic: TopicPackage) -> str:
