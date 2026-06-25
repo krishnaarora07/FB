@@ -131,6 +131,10 @@ def run_command(args: argparse.Namespace, settings: Settings) -> int:
     (run_dir / "script.txt").write_text(topic.script, encoding="utf-8")
 
     print(f"Chosen topic: {topic.topic_title}")
+    if topic.viral_story_type:
+        print(f"Viral story type: {topic.viral_story_type}")
+    if topic.debate_bait_comment:
+        print(f"📌 Pin this comment: {topic.debate_bait_comment}")
     if args.dry_run:
         _print_path("Run directory", run_dir)
         return 0

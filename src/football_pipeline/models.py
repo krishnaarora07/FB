@@ -84,6 +84,9 @@ class TopicPackage:
     hashtags: list[str]
     is_breaking_news: bool
     visual_segments: list[dict] = None
+    # Viral enhancement fields (optional — safe defaults for backward compat)
+    viral_story_type: str = ""        # SHOCK | OUTRAGE | DISBELIEF | PRIDE | URGENCY | HUMOUR
+    debate_bait_comment: str = ""     # Binary question to pin as first comment after upload
 
     @classmethod
     def from_dict(cls, data: dict) -> "TopicPackage":
@@ -96,7 +99,9 @@ class TopicPackage:
             youtube_description=str(data.get("youtube_description") or ""),
             hashtags=[str(item) for item in data.get("hashtags", [])][:12],
             is_breaking_news=bool(data.get("is_breaking_news", False)),
-            visual_segments=data.get("visual_segments") or []
+            visual_segments=data.get("visual_segments") or [],
+            viral_story_type=str(data.get("viral_story_type") or ""),
+            debate_bait_comment=str(data.get("debate_bait_comment") or ""),
         )
 
 

@@ -230,18 +230,46 @@ class GeminiTopicClient:
 
             topic = TopicPackage.from_dict(data)
 
+            # --- Deterministic Infinite-Loop Connector Check ---
+            # Validate that the script's last sentence echoes a word/phrase from the first.
+            import re as _re
+            sentences = [seg.get("text", "").strip() for seg in (data.get("visual_segments") or []) if seg.get("text", "").strip()]
+            loop_ok = False
+            loop_feedback = ""
+            if len(sentences) >= 2:
+                first_words = set(_re.findall(r'\b[a-zA-Z]{4,}\b', sentences[0].lower()))
+                last_words  = set(_re.findall(r'\b[a-zA-Z]{4,}\b', sentences[-1].lower()))
+                loop_ok = bool(first_words & last_words)  # at least one 4+ letter word shared
+            else:
+                loop_ok = True  # too short to check — let virality gate handle it
+
+            if not loop_ok:
+                print("  ⚠️ LOOP CHECK FAILED: last sentence shares no key words with first sentence.", flush=True)
+                loop_feedback = (
+                    "\n\nLOOP REJECTION: Your script has NO INFINITE LOOP. "
+                    "The LAST sentence MUST echo a keyword from the FIRST sentence so the video "
+                    "seamlessly repeats. Example connectors: 'And that's exactly why ...', "
+                    "'Which brings us back to ...', 'So when you see ... again, now you know why.'"
+                )
+            else:
+                print("  ✅ Infinite loop connector verified.", flush=True)
+
             # --- Virality Predictor Quality Gate ---
-            score_prompt = f"""You are a strict YouTube Shorts critic. Rate this script out of 10 for engagement, pacing, and factual integrity.
+            score_prompt = f"""You are a strict YouTube Shorts critic. Rate this script out of 10.
 Script: "{topic.script}"
 Title: "{topic.youtube_title}"
 
-Respond in JSON only: {{"score": 7, "reason": "too slow to hook"}}
+Respond in JSON only: {{"score": 7, "reason": "short explanation", "loop_present": true}}
 
-Score criteria:
-- Automatically 0 if the story contains FAKE NEWS, fabricated drama, or hallucinated details.
-- 9-10: Excellent hook, fast-paced, highly engaging, strong infinite loop, 100% FACTUAL.
-- 7-8: Good, publishable, 100% FACTUAL.
-- Below 7: REJECT — too boring, too slow, or weak hook"""
+Score criteria (ALL must pass for 9-10):
+- Automatically 0 if FAKE NEWS, fabricated drama, or hallucinated details are detected.
+- Automatically 0 if the final sentence does NOT connect back to the opening (missing infinite loop).
+- 9-10: Explosive hook, punchy pacing, verified facts, AND a clear infinite loop connector.
+- 7-8: Solid, publishable, factual, has a loop connector.
+- Below 7: REJECT — too boring, slow hook, weak pacing, or missing infinite loop.
+
+Infinite loop means: the last sentence must grammatically and thematically lead back into the first 
+sentence so a viewer watching on repeat feels the video never ends."""
 
             score = 10  # default pass if scoring fails
             reason = ""
@@ -257,18 +285,26 @@ Score criteria:
                 score_data = _parse_jsonish(getattr(score_response, "text", "{}"))
                 score = int(score_data.get("score", 10))
                 reason = score_data.get("reason", "")
-                print(f"  Virality Predictor Score: {score}/10 (Reason: {reason})", flush=True)
+                loop_present = score_data.get("loop_present", True)
+                print(f"  Virality Predictor Score: {score}/10 (Reason: {reason}, Loop: {loop_present})", flush=True)
             except Exception as e:
                 print(f"  Warning: Virality Predictor failed ({e}), accepting script anyway.", flush=True)
 
-            # ENFORCE the quality gate — reject fake news and low-scoring scripts
-            if score < 7:
+            # ENFORCE the quality gate — reject fake news, weak scripts, and missing loops
+            if score < 7 or not loop_ok:
                 if generation_attempt < 3:
-                    print(f"  ❌ Script REJECTED (score {score}/10). Forcing a rewrite with feedback...", flush=True)
-                    base_prompt += f"\n\nCRITICAL REJECTION FEEDBACK: Your previous script was scored {score}/10 and REJECTED because: {reason}. You MUST fix this. Write a completely different, 100% FACTUAL story from the news feed. Do NOT hallucinate or fabricate ANY details."
+                    rejection_reason = reason if score < 7 else "missing infinite loop connector"
+                    print(f"  ❌ Script REJECTED (score {score}/10, loop_ok={loop_ok}). Forcing a rewrite...", flush=True)
+                    base_prompt += (
+                        f"\n\nCRITICAL REJECTION FEEDBACK: Your previous script was scored {score}/10 "
+                        f"and REJECTED because: {rejection_reason}. "
+                        "Write a completely different, 100% FACTUAL story from the news feed. "
+                        "Do NOT hallucinate ANY details."
+                        + loop_feedback
+                    )
                     continue  # retry outer generation loop
                 else:
-                    print(f"  ⚠️ Score still {score}/10 after {generation_attempt} attempts — accepting best available script.", flush=True)
+                    print(f"  ⚠️ Score {score}/10 / loop_ok={loop_ok} after {generation_attempt} attempts — accepting best available script.", flush=True)
 
             self._save_history(history_path, history, topic.topic_title)
             return topic
@@ -347,69 +383,154 @@ Today is {date.today().isoformat()}.
 {news_str}
 Your task is to produce a complete, ready-to-publish YouTube Shorts video package based on ONE story from the news feed above.
 
-⚠️ ANTI-HALLUCINATION CONTRACT — READ CAREFULLY ⚠️
-You are bound to these rules. Breaking ANY of them = automatic score of 0 and rejection:
+╔══════════════════════════════════════════════════╗
+║   ⚠️  ANTI-HALLUCINATION CONTRACT  ⚠️            ║
+╚══════════════════════════════════════════════════╝
+Breaking ANY rule below = automatic score of 0 and rejection:
 1. Base your script on ONE story explicitly present in the LIVE FOOTBALL NEWS FEED above.
-2. Do NOT invent, extrapolate, or add ANY details not stated in the news item. No fabricated scores, quotes, bans, injuries, transfers or statistics.
+2. Do NOT invent, extrapolate, or add ANY details not stated in the news item.
+   → No fabricated scores, quotes, bans, injuries, transfers, or statistics.
 3. Do NOT combine details from two different stories into one fictional narrative.
-4. [RUMOUR] sources: use hedged language only: "reportedly", "sources claim", "according to reports". NEVER state as fact.
-5. If unsure of a detail — leave it out. A shorter, factual script is better than a longer hallucinated one.
+4. [RUMOUR] sources: use hedged language ONLY — "reportedly", "sources claim",
+   "according to reports". NEVER state as confirmed fact.
+5. If unsure of any detail — leave it out entirely.
+   A shorter, factual script beats a longer hallucinated one every time.
 
-FORBIDDEN (score 0):
-✗ Adding injuries/bans/scores not in the news item
-✗ Inventing player quotes
-✗ Mixing two players from different articles into one story
-✗ Any statistic you cannot directly copy from the news text
-
-═══════════════════════════════════════════
-1. TOPIC SELECTION & FACTUAL ACCURACY
-═══════════════════════════════════════════
-- Select ONE story EXCLUSIVELY from the LIVE FOOTBALL NEWS FEED above.
-- Pick the story most likely to go viral based on TREND SIGNALS, but ALL facts MUST come verbatim from that news item.
-- If no exciting story exists, pick the most interesting factual one — do NOT add drama that isn't there.
+FORBIDDEN (instant score 0):
+  ✗ Injuries / bans / scores not explicitly in the news item
+  ✗ Inventing or paraphrasing player quotes
+  ✗ Mixing two players from different articles into one story
+  ✗ Any statistic you cannot copy verbatim from the news text
+  ✗ Dramatic embellishment beyond what is stated in the source
 
 ═══════════════════════════════════════════
-2. SCRIPT WRITING & PACING
+STEP 1 — VIRAL STORY TYPE SELECTION
 ═══════════════════════════════════════════
-- MAXIMUM LENGTH: Under {word_limit} words (Target video length is {target_length}s). This is a strict hard limit.
-- The script must be punchy, engaging, and fast-paced.
-- THE INFINITE LOOP: The final sentence of your script MUST grammatically connect directly back into the very first sentence so the video seamlessly loops. (Example: End with "...and that explains why" if the video starts with "Lionel Messi is leaving his club...")
+Before writing a single word of the script, you MUST:
+  a) Choose the ONE story from the news feed with the highest viral potential.
+  b) Classify it into exactly ONE of these 6 viral emotion types:
+
+  TYPE 1 — SHOCK
+     Trigger: A fact that is genuinely surprising and counter-intuitive.
+     Example hook style: "[Player] just did something nobody saw coming."
+     Anti-hallucination rule: The shocking fact MUST be stated in the news item. Do NOT invent shock.
+
+  TYPE 2 — OUTRAGE
+     Trigger: A decision, action, or ruling that a large audience will feel is unfair or absurd.
+     Example hook style: "This decision has left football fans furious."
+     Anti-hallucination rule: State only what happened — do NOT editorialize beyond the source.
+
+  TYPE 3 — DISBELIEF
+     Trigger: A stat, fee, or record that sounds impossible but is real.
+     Example hook style: "€300 million. That's the actual number."
+     Anti-hallucination rule: The number or record MUST appear verbatim in the news item.
+
+  TYPE 4 — PRIDE / INSPIRATION
+     Trigger: A human achievement story — underdog, comeback, cultural milestone.
+     Example hook style: "Two years ago he was released. Today he's at the World Cup."
+     Anti-hallucination rule: Do NOT embellish the backstory beyond what the source states.
+
+  TYPE 5 — URGENCY
+     Trigger: A time-sensitive event — deadline, imminent announcement, window closing.
+     Example hook style: "The transfer window closes in 48 hours and [Club] just made their move."
+     Anti-hallucination rule: Do NOT state a deadline unless the source explicitly mentions timing.
+
+  TYPE 6 — HUMOUR / ABSURDITY
+     Trigger: A genuinely funny or bizarre football moment.
+     Example hook style: "Only in football does this happen."
+     Anti-hallucination rule: The funny detail MUST be from the source. Do NOT exaggerate.
+
+  Prioritise this order when equally viral: SHOCK > DISBELIEF > URGENCY > OUTRAGE > PRIDE > HUMOUR.
+  Output your chosen type in the JSON as "viral_story_type".
+
+═══════════════════════════════════════════
+STEP 2 — SCRIPT: VIRAL FORMULA + INVISIBLE LOOP
+═══════════════════════════════════════════
+MAXIMUM LENGTH: Under {word_limit} words ({target_length}s target). Hard limit — do NOT exceed.
+
+You MUST structure the script using this exact 5-beat formula:
+
+  BEAT 1 — HOOK (1–2 sentences)
+    • The very first sentence must create INSTANT intrigue or shock.
+    • 3–8 words max for the opening line. No preamble, no context.
+    • Start mid-action. "Messi refused." not "In today's video, we look at Messi's contract."
+    • Only use facts present in the news item.
+
+  BEAT 2 — TWIST (1–2 sentences)
+    • Immediately subvert or deepen the expectation set by the hook.
+    • Add the detail that makes the hook make sense — but keep it sharp.
+    • Still only facts from the source.
+
+  BEAT 3 — PROOF (1 sentence)
+    • One concrete, specific fact — a number, a name, a quote, a source — that makes it real.
+    • This is the credibility beat. ONLY use details verbatim from the news item.
+    • Format: "According to [source], ..." or just state the fact directly if VERIFIED.
+
+  BEAT 4 — STAKES (1–2 sentences)
+    • Why does this matter? Who wins, who loses, what changes?
+    • Keep it grounded — extrapolate only what the source implies, not what you invent.
+
+  BEAT 5 — INVISIBLE LOOP (1 sentence)
+    ⚠️ THIS IS MACHINE-CHECKED. Missing or generic loops = automatic rejection.
+    • The loop sentence must feel like a NATURAL CONTINUATION of the story, NOT a labelled ending.
+    • It must echo the exact subject (player name / club / event) from BEAT 1.
+    • The viewer should feel the video is still going, not that it just ended.
+    • BAD: "What a story. Drop your thoughts below."  ← generic, no echo, rejected.
+    • BAD: "And that's why football is amazing."       ← no subject echo, rejected.
+    • GOOD (if Beat 1 = "Messi refused €300 million"):
+        "And that €300 million refusal? It's the reason Messi's next move will define his legacy."
+    • GOOD (if Beat 1 = "The referee missed a clear penalty"):
+        "Which is exactly why that referee's name is still trending worldwide."
+    • The loop sentence must share at least one 4+ letter keyword with Beat 1. Non-negotiable.
+
 {hook_instructions}
-- No filler words, introductions like "in this video", or outro requests like "like and subscribe". Get straight to the facts.
+- No filler words, "in this video", "like and subscribe", or meta-commentary. Facts only.
 
 ═══════════════════════════════════════════
-3. VISUALS (GIPHY B-ROLL)
+STEP 3 — VISUALS (GIPHY B-ROLL)
 ═══════════════════════════════════════════
 Our visual engine strictly uses GIPHY to download short video clips.
 - You MUST generate EXACTLY ONE visual segment for every single sentence in your script.
-- For each sentence, provide an array of 2 to 3 `broll_queries`. These MUST be EXTREMELY short and broad (1-3 words max).
-- Giphy's search is very literal and fails on complex phrases. Use basic nouns and simple actions.
-- Instead of "Ronaldo celebrating a goal with his teammates", use just "Ronaldo goal" or "Ronaldo".
-- Examples of good Giphy queries: "Messi sad", "Guardiola", "football fans", "referee", "red card".
-- DO NOT write full sentences for queries. Keep them as broad, accurate, and short as possible.
+- For each sentence, provide an array of 2 to 3 `broll_queries`. EXTREMELY short and broad (1-3 words max).
+- Giphy search is very literal. Use basic nouns and simple actions only.
+- GOOD examples: "Messi sad", "Guardiola", "football fans", "referee", "red card", "stadium".
+- BAD examples: "Ronaldo celebrating a goal with his teammates after a controversial penalty".
+- Map each beat visually:
+    HOOK   → dramatic action clip (goal, tackle, red card, crowd roar)
+    TWIST  → reaction clip (manager shock, player face, fans stunned)
+    PROOF  → generic authority visual (press conference, trophy, scoreboard)
+    STAKES → wide/epic visual (stadium, flag, crowd celebration or protest)
+    LOOP   → echo the Hook clip or a wide stadium shot — completing the visual circle
 
 ═══════════════════════════════════════════
-4. OUTPUT FORMAT (STRICT JSON)
+STEP 4 — OUTPUT FORMAT (STRICT JSON)
 ═══════════════════════════════════════════
-Return ONLY this exact JSON with NO extra text before or after:
+Return ONLY this exact JSON. NO extra text before or after. NO markdown fences:
 {{
-  "source_headline": "EXACT headline copied word-for-word from the news feed this script is based on",
+  "source_headline": "EXACT headline copied word-for-word from the news feed",
+  "viral_story_type": "SHOCK | OUTRAGE | DISBELIEF | PRIDE | URGENCY | HUMOUR",
   "topic_title": "short descriptive topic name (max 8 words)",
-  "angle": "one sentence explaining why this topic is currently trending",
+  "angle": "one sentence: why this story is viral right now",
   "visual_segments": [
-    {{"text": "First sentence of the script...", "broll_queries": ["keyword1", "keyword2"]}},
-    {{"text": "Second sentence...", "broll_queries": ["keyword1", "keyword2"]}}
+    {{"beat": "HOOK",   "text": "First sentence...",  "broll_queries": ["keyword1", "keyword2"]}},
+    {{"beat": "TWIST",  "text": "Second sentence...", "broll_queries": ["keyword1", "keyword2"]}},
+    {{"beat": "PROOF",  "text": "Third sentence...",  "broll_queries": ["keyword1", "keyword2"]}},
+    {{"beat": "STAKES", "text": "Fourth sentence...", "broll_queries": ["keyword1", "keyword2"]}},
+    {{"beat": "LOOP",   "text": "Final sentence — echoes Beat 1 subject.", "broll_queries": ["keyword1", "keyword2"]}}
   ],
-  "youtube_title": "viral upload title under 95 chars with a relevant emoji",
-  "youtube_description": "2-3 engaging sentences naturally weaving in SEO keywords (player names, teams, 'Football Shorts').",
+  "youtube_title": "Viral title under 95 chars with relevant emoji — must match viral_story_type tone",
+  "youtube_description": "2-3 punchy sentences with SEO keywords. MUST end with a binary debate question e.g. 'Right call or massive mistake? Comment below.'",
   "hashtags": {hashtag_instructions},
+  "debate_bait_comment": "A single polarising binary question (max 15 words) to pin as first comment",
   "is_breaking_news": false
 }}
 
-MANDATORY: The "source_headline" field must be the EXACT headline from the news feed. This is used to verify you did not hallucinate.
+MANDATORY: "source_headline" must be the EXACT headline from the news feed — used to verify no hallucination.
+MANDATORY: "viral_story_type" must be one of the 6 types. Do NOT invent a new type.
+MANDATORY: "debate_bait_comment" must be a binary choice question, not open-ended.
 
 ═══════════════════════════════════════════
-TREND SIGNALS (YouTube metadata — use as topic inspiration)
+TREND SIGNALS (YouTube metadata — topic inspiration only)
 ═══════════════════════════════════════════
 {json.dumps(payload, ensure_ascii=False, indent=2)}
 """.strip()
