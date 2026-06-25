@@ -145,19 +145,7 @@ jobs:
           echo "=== Pipeline finished at $(date -u) ==="
 
       # ─────────────────────────────────────────
-      # 9. AUTO REPLY TO FAN COMMENTS
-      #    Runs on the last 3 uploaded videos using Gemini.
-      #    Runs even if the pipeline step succeeded (always: true) so
-      #    comment replies happen even on re-runs.
-      # ─────────────────────────────────────────
-      - name: Auto-reply to fan comments (Gemini)
-        if: always()
-        run: |
-          echo "=== Replying to fan comments ==="
-          football-pipeline reply-comments || echo "Comment reply step failed — continuing."
-
-      # ─────────────────────────────────────────
-      # 10. SAVE HISTORY BACK TO REPO
+      # 9. SAVE HISTORY BACK TO REPO
       #     Commits topic_history.json + upload_history.json back to main
       #     so the next run picks them up via checkout.
       # ─────────────────────────────────────────
