@@ -2,14 +2,10 @@ name: Daily Football Pipeline
 
 on:
   schedule:
-    # ── 3:30 AM IST = 10:00 PM UTC (prev day) ── Americas late-night peak
-    - cron: '0 22 * * *'
-    # ── 9:00 AM IST = 3:30 AM UTC ── India morning peak (post match-result searches)
+    # 9:00 AM IST = 3:30 AM UTC  (morning run — captures European overnight news)
     - cron: '30 3 * * *'
-    # ── 7:00 PM IST = 1:30 PM UTC ── Europe afternoon / India evening peak
-    - cron: '30 13 * * *'
-    # ── 10:30 PM IST = 5:00 PM UTC ── Global prime time (highest YouTube Shorts traffic)
-    - cron: '0 17 * * *'
+    # 8:00 PM IST = 2:30 PM UTC  (evening run — global peak viewing hours)
+    - cron: '30 14 * * *'
   workflow_dispatch:   # ← Manual trigger from the Actions tab at any time
 
 jobs:
