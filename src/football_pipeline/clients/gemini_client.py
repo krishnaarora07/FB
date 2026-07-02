@@ -348,17 +348,31 @@ sentence so a viewer watching on repeat feels the video never ends."""
                 
         news_str = ""
         if news:
-            news_str = "\n═══════════════════════════════════════════\nLIVE FOOTBALL NEWS FEED\n═══════════════════════════════════════════\n"
+            news_str = "\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nLIVE FOOTBALL NEWS FEED\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n"
             news_str += (
                 "Sources are tagged [VERIFIED] or [RUMOUR].\n"
-                "- [VERIFIED] = confirmed by reputable journalism (BBC, Guardian, Sky, Independent). "
-                "You MAY state these as confirmed facts.\n"
-                "- [RUMOUR] = tabloid/gossip speculation, not independently confirmed. "
-                "You MUST frame these as 'reportedly', 'sources claim', or 'according to reports' — NEVER as confirmed fact.\n"
-                "You MUST choose a story from this feed. DO NOT invent or hallucinate ANY details not present here.\n\n"
+                "- [VERIFIED] = confirmed by reputable journalism. You MAY state as confirmed fact.\n"
+                "- [RUMOUR] = unconfirmed speculation. MUST use 'reportedly', 'sources claim' etc.\n"
+                "You MUST choose a story from this feed. DO NOT hallucinate any detail not present here.\n\n"
             )
-            for n in news[:30]:
-                news_str += f"- [{n.source}] {n.title}\n  Summary: {n.description}\n"
+            # Stories are pre-sorted by viral_score desc then recency desc.
+            # Split into HOT (score >= 6) and regular so Gemini sees priority clearly.
+            hot    = [n for n in news if getattr(n, "viral_score", 0) >= 6][:15]
+            normal = [n for n in news if getattr(n, "viral_score", 0) <  6][:30]
+
+            if hot:
+                news_str += (
+                    "\ud83d\udd25 HOT STORIES (highest viral potential \u2014 STRONGLY PREFER one of these):\n\n"
+                )
+                for n in hot:
+                    vs = getattr(n, "viral_score", 0)
+                    news_str += f"- [{n.source}] [score={vs}] {n.title}\n  Summary: {n.description}\n"
+
+            if normal:
+                news_str += "\n\ud83d\udcf0 OTHER STORIES (use only if no HOT story suits a viral angle):\n\n"
+                for n in normal:
+                    news_str += f"- [{n.source}] {n.title}\n  Summary: {n.description}\n"
+
 
         hook_instructions = "- Use short punchy sentences. Vary rhythm. Build tension. End with a bang."
         if hook_pressure == "high":
