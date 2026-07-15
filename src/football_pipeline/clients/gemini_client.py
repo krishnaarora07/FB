@@ -17,11 +17,14 @@ def _parse_jsonish(text: str) -> dict:
         cleaned = re.sub(r"```$", "", cleaned).strip()
     try:
         return json.loads(cleaned)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
         match = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
         if not match:
-            raise
-        return json.loads(match.group(0))
+            raise e
+        try:
+            return json.loads(match.group(0))
+        except json.JSONDecodeError:
+            raise e
 
 
 class GeminiTopicClient:
@@ -74,17 +77,7 @@ class GeminiTopicClient:
             except Exception as exc:
                 print(f"  Warning: Failed to fetch analytics feedback: {exc}")
 
-        proven_hashtags = []
-        if upload_history_path.exists():
-            try:
-                upload_history = read_json(upload_history_path)
-                last_3 = upload_history[-3:]
-                for item in last_3:
-                    if "hashtags" in item:
-                        proven_hashtags.extend(item["hashtags"])
-            except Exception:
-                pass
-        proven_hashtags = list(dict.fromkeys(proven_hashtags))[:10]
+        # (Hashtag recycling removed to prevent algorithm topic confusion)
 
         target_length = self.settings.script_seconds
         hook_pressure = "normal"
@@ -102,15 +95,16 @@ class GeminiTopicClient:
         # Ensure videos are at least 30 seconds as requested by the user
         target_length = max(30, self.settings.script_seconds)
 
-        base_prompt = self._build_prompt(videos, history, analytics_str, trends, news, target_length, hook_pressure, search_terms, viral_seeds, proven_hashtags)
+        base_prompt = self._build_prompt(videos, history, analytics_str, trends, news, target_length, hook_pressure, search_terms, viral_seeds)
 
-        # Verified accessible models on free tier, ordered best quality → most quota available
+        # Active Gemini models on free tier, ordered best quality → most quota available
+        # gemini-2.0-flash / gemini-2.0-flash-lite deprecated June 1, 2026 — removed
         fallback_chain = [
-            "gemini-2.5-pro",        # Best quality (2 RPM free tier)
-            "gemini-2.5-flash",      # Best balance of quality + quota
-            "gemini-2.5-flash-lite", # Higher quota, lighter
-            "gemini-2.0-flash",      # Reliable fallback
-            "gemini-2.0-flash-lite", # Highest free-tier quota
+            "gemini-2.5-pro",        # Best quality — 2 RPM, 50 RPD on free tier
+            "gemini-3.5-flash",      # Newest flash — agentic, multi-step, released May 2026
+            "gemini-2.5-flash",      # Proven workhorse — ~15 RPM, 1500 RPD
+            "gemini-2.5-flash-lite", # High quota, lighter — good middle safety net
+            "gemini-3.1-flash-lite", # Highest free-tier RPM — last resort
         ]
 
         # Ensure starting model is in the chain; if not, prepend it
@@ -145,6 +139,7 @@ class GeminiTopicClient:
                             config=genai_types.GenerateContentConfig(
                                 temperature=0.5,  # Increased for more engaging scripts since sources are now verified
                                 top_p=0.8,
+                                response_mime_type="application/json"
                             )
                         )
                         used_model = candidate_model
@@ -241,7 +236,7 @@ class GeminiTopicClient:
                 last_words  = set(_re.findall(r'\b[a-zA-Z]{4,}\b', sentences[-1].lower()))
                 loop_ok = bool(first_words & last_words)  # at least one 4+ letter word shared
             else:
-                loop_ok = True  # too short to check — let virality gate handle it
+                loop_ok = False  # REJECT IF TOO SHORT TO FORM A LOOP
 
             if not loop_ok:
                 print("  ⚠️ LOOP CHECK FAILED: last sentence shares no key words with first sentence.", flush=True)
@@ -280,6 +275,7 @@ sentence so a viewer watching on repeat feels the video never ends."""
                     contents=score_prompt,
                     config=genai_types.GenerateContentConfig(
                         temperature=0.0,  # Fully deterministic for scoring
+                        response_mime_type="application/json"
                     )
                 )
                 score_data = _parse_jsonish(getattr(score_response, "text", "{}"))
@@ -317,7 +313,7 @@ sentence so a viewer watching on repeat feels the video never ends."""
         # Keep only the last 50 topics to avoid overflowing the prompt
         write_json(path, history[-50:])
 
-    def _build_prompt(self, videos: list[VideoSignal], history: list[str], analytics_str: str, trends: list[str], news, target_length: int, hook_pressure: str, search_terms: list[str], viral_seeds: list[str], proven_hashtags: list[str]) -> str:
+    def _build_prompt(self, videos: list[VideoSignal], history: list[str], analytics_str: str, trends: list[str], news, target_length: int, hook_pressure: str, search_terms: list[str], viral_seeds: list[str]) -> str:
         signal_limit = self.settings.max_signals_for_gemini
         payload = [video.prompt_dict() for video in videos[:signal_limit]]
 
@@ -380,9 +376,7 @@ sentence so a viewer watching on repeat feels the video never ends."""
         elif hook_pressure == "red_alert":
             hook_instructions = "🚨 RED ALERT EMERGENCY: Viewers are swiping away in 3 seconds. Write the most aggressive, controversial opening sentence possible. Make it a question nobody can resist answering."
 
-        hashtag_instructions = '["#FIFAWorldCup2026", "#Football", "#Shorts", "... plus 10-15 highly optimized trending hashtags relevant to the topic"]'
-        if proven_hashtags:
-            hashtag_instructions = f'["#FIFAWorldCup2026", "#Football", "#Shorts", ... plus these proven high-performing tags: {", ".join(proven_hashtags)}]'
+        hashtag_instructions = '["#FIFAWorldCup2026", "#Football", "#Shorts", "... plus 10-15 highly optimized 100% fresh hashtags specific ONLY to this exact story"]'
 
         # Approximate words = target_length * 2.1 (avg speaking rate of 2.1 words/sec)
         word_limit = int(target_length * 2.1)

@@ -97,12 +97,12 @@ def build_moviepy_edit(
     """Combine voiceover, subtitles, and B-roll into a final vertical video."""
     
     # --- Dynamic B-Roll Pacing ---
-    target_duration = 1.8 # Lower baseline from 2.5 to 1.8
+    target_duration = 1.4 # Lower baseline from 1.8 to 1.4 for 2026 algorithm
     if insights and insights.avg_view_duration:
         if insights.avg_view_duration < 15:
             target_duration = 1.0 # Hyper-fast pacing for low retention
         elif insights.avg_view_duration <= 25:
-            target_duration = 1.4 # Fast pacing
+            target_duration = 1.2 # Fast pacing
 
     if not broll_paths:
         raise ValueError("At least one B-roll asset is required.")
@@ -184,13 +184,13 @@ def build_moviepy_edit(
         fg_img = fg_crop.resize((1080, 960), Image.Resampling.LANCZOS)
         
         # 3. Animate with MoviePy
-        # Zoom out slowly for background
+        # Zoom out faster for background (dynamic punchy effect)
         def resize_bg(t):
-            return 1.1 - 0.05 * (t / length)
+            return 1.15 - 0.10 * (t / length)
             
-        # Zoom in slowly for foreground
+        # Zoom in faster for foreground
         def resize_fg(t):
-            return 1.0 + 0.05 * (t / length)
+            return 1.0 + 0.10 * (t / length)
 
         bg_clip = ImageClip(np.array(bg_img.convert("RGB"))).set_duration(length)
         bg_clip = bg_clip.resize(resize_bg).set_position("center")
