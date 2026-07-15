@@ -187,36 +187,28 @@ class RSSClient:
     # RUMOUR   = transfer gossip / tabloid — Gemini must hedge with "reportedly" etc.
 
     VERIFIED_FEEDS = {
-        # English-language heavyweights
+        # English-language heavyweights — confirmed working
         "BBC Sport":          "http://feeds.bbci.co.uk/sport/football/rss.xml",
         "The Guardian":       "https://www.theguardian.com/football/rss",
         "Sky Sports":         "https://www.skysports.com/rss/12040",
         "The Independent":    "https://www.independent.co.uk/sport/football/rss",
-        # Global & continental
-        "ESPN FC":            "https://www.espn.com/espn/rss/soccer/news",
-        "UEFA Official":      "https://www.uefa.com/rssfeed/uefachampionsleague/rss.xml",
-        "Goal.com":           "https://www.goal.com/feeds/en/news",
+        # Global coverage
         "90min":              "https://www.90min.com/posts.rss",
         "Football Italia":    "https://www.football-italia.net/feed/",
-        # Spanish press (La Liga / Champions League scoops)
-        "AS English":         "https://en.as.com/rss/soccer.xml",
-        "Marca English":      "https://www.marca.com/en/rss/soccer/",
-        # French press
-        "L'Equipe":           "https://www.lequipe.fr/rss/actu_rss_Football.xml",
-        # South American football
-        "Globo Esporte":      "https://ge.globo.com/rss/",
-        # World Cup & FIFA
-        "FIFA News":          "https://www.fifa.com/en/articles/rss",
-        # Premium journalism
+        "World Soccer":       "https://www.worldsoccer.com/feed",
         "FourFourTwo":        "https://www.fourfourtwo.com/rss",
+        # Transfer market — high-virality signal
+        "Transfermarkt":      "https://www.transfermarkt.co.uk/rss/news",
+        # Spanish press — working Marca URL
+        "Marca English":      "https://e00-marca.uecdn.es/rss/en/international.xml",
     }
 
     # Transfer gossip / tabloid — always hedged in the prompt
     RUMOUR_FEEDS = {
-        "TalkSPORT":          "https://talksport.com/feed/",
+        "TalkSPORT":          "https://talksport.com/feed",
         "Mirror Football":    "https://www.mirror.co.uk/sport/football/rss.xml",
-        "Calciomercato":      "https://www.calciomercato.com/en/rss",
-        "Football Transfers": "https://www.footballtransfers.com/en/transfer-news/rss",
+        "Give Me Sport":      "https://www.givemesport.com/feed/",
+        "Football365":        "https://www.football365.com/feed",
     }
 
     _HEADERS = {
