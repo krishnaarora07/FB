@@ -97,14 +97,15 @@ class GeminiTopicClient:
 
         base_prompt = self._build_prompt(videos, history, analytics_str, trends, news, target_length, hook_pressure, search_terms, viral_seeds)
 
-        # Active Gemini models on free tier, ordered best quality → most quota available
-        # gemini-2.0-flash / gemini-2.0-flash-lite deprecated June 1, 2026 — removed
+        # Active Gemini models — ordered best quality → most quota available (July 2026)
+        # Deprecated (removed): gemini-2.0-flash, gemini-2.0-flash-lite (June 2026)
         fallback_chain = [
-            "gemini-2.5-pro",        # Best quality — 2 RPM, 50 RPD on free tier
-            "gemini-3.5-flash",      # Newest flash — agentic, multi-step, released May 2026
-            "gemini-2.5-flash",      # Proven workhorse — ~15 RPM, 1500 RPD
-            "gemini-2.5-flash-lite", # High quota, lighter — good middle safety net
-            "gemini-3.1-flash-lite", # Highest free-tier RPM — last resort
+            "gemini-3.1-pro",        # Highest capability — advanced reasoning, complex coding
+            "gemini-2.5-pro",        # Strong fallback — 2 RPM / 50 RPD on free tier
+            "gemini-3.5-flash",      # GA since May 2026 — agentic, 1M context, multi-step
+            "gemini-2.5-flash",      # Proven workhorse — ~15 RPM / 1500 RPD
+            "gemini-2.5-flash-lite", # Higher quota, lighter — good middle safety net
+            "gemini-3.1-flash-lite", # Ultra-low latency, highest free-tier RPM — last resort
         ]
 
         # Ensure starting model is in the chain; if not, prepend it

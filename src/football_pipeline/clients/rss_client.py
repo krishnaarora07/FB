@@ -187,27 +187,28 @@ class RSSClient:
     # RUMOUR   = transfer gossip / tabloid — Gemini must hedge with "reportedly" etc.
 
     VERIFIED_FEEDS = {
-        # English-language heavyweights — confirmed working
+        # ── English heavyweights — never go down ────────────────────────────
         "BBC Sport":          "http://feeds.bbci.co.uk/sport/football/rss.xml",
         "The Guardian":       "https://www.theguardian.com/football/rss",
         "Sky Sports":         "https://www.skysports.com/rss/12040",
         "The Independent":    "https://www.independent.co.uk/sport/football/rss",
-        # Global coverage
+        # ── Global coverage ──────────────────────────────────────────────────
         "90min":              "https://www.90min.com/posts.rss",
-        "Football Italia":    "https://www.football-italia.net/feed/",
-        "World Soccer":       "https://www.worldsoccer.com/feed",
         "FourFourTwo":        "https://www.fourfourtwo.com/rss",
-        # Transfer market — high-virality signal
+        "World Soccer":       "https://www.worldsoccer.com/feed",
+        # ── Transfer market (high-virality signal) ───────────────────────────
         "Transfermarkt":      "https://www.transfermarkt.co.uk/rss/news",
-        # Spanish press — working Marca URL
-        "Marca English":      "https://e00-marca.uecdn.es/rss/en/international.xml",
+        # ── League-specific ──────────────────────────────────────────────────
+        "Football Italia":    "https://www.football-italia.net/feed/",   # Serie A
+        "Bulinews":           "https://bulinews.com/rss.xml",            # Bundesliga
+        "Marca English":      "https://e00-marca.uecdn.es/rss/en/international.xml",  # La Liga
     }
 
     # Transfer gossip / tabloid — always hedged in the prompt
     RUMOUR_FEEDS = {
         "TalkSPORT":          "https://talksport.com/feed",
         "Mirror Football":    "https://www.mirror.co.uk/sport/football/rss.xml",
-        "Give Me Sport":      "https://www.givemesport.com/feed/",
+        "CaughtOffside":      "https://www.caughtoffside.com/feed/",
         "Football365":        "https://www.football365.com/feed",
     }
 
