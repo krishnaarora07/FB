@@ -97,13 +97,12 @@ class GeminiTopicClient:
 
         base_prompt = self._build_prompt(videos, history, analytics_str, trends, news, target_length, hook_pressure, search_terms, viral_seeds)
 
-        # Active Gemini models — ordered best quality → most quota available (July 2026)
+        # Free-tier Gemini models — ordered best quality → most quota available (July 2026)
+        # Pro models (gemini-3.1-pro, gemini-2.5-pro) are PAID tier only — excluded.
         # Deprecated (removed): gemini-2.0-flash, gemini-2.0-flash-lite (June 2026)
         fallback_chain = [
-            "gemini-3.1-pro",        # Highest capability — advanced reasoning, complex coding
-            "gemini-2.5-pro",        # Strong fallback — 2 RPM / 50 RPD on free tier
-            "gemini-3.5-flash",      # GA since May 2026 — agentic, 1M context, multi-step
-            "gemini-2.5-flash",      # Proven workhorse — ~15 RPM / 1500 RPD
+            "gemini-3.5-flash",      # Best free-tier quality — agentic, 1M context, GA May 2026
+            "gemini-2.5-flash",      # Proven workhorse — ~15 RPM / 1500 RPD free tier
             "gemini-2.5-flash-lite", # Higher quota, lighter — good middle safety net
             "gemini-3.1-flash-lite", # Ultra-low latency, highest free-tier RPM — last resort
         ]
