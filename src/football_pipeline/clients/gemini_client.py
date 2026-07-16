@@ -11,6 +11,16 @@ from ..models import TopicPackage, VideoSignal, read_json, write_json
 
 
 def _parse_jsonish(text: str) -> dict:
+    """Parse a JSON object from a Gemini response that may contain surrounding markdown
+    fences or trailing conversational text after the JSON block.
+
+    Strategy:
+    1. Strip markdown fences (```json ... ```).
+    2. Try a direct parse — fast path for well-formed responses.
+    3. If the error is "Extra data", Gemini appended text *after* a valid JSON block.
+       Slice the string at the reported error position and re-parse — this is precise.
+    4. Last resort: extract the first {...} span with a non-greedy regex and re-parse.
+    """
     cleaned = text.strip()
     if cleaned.startswith("```"):
         cleaned = re.sub(r"^```(?:json)?", "", cleaned, flags=re.IGNORECASE).strip()
@@ -18,7 +28,15 @@ def _parse_jsonish(text: str) -> dict:
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError as e:
-        match = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
+        # Strategy 3: "Extra data" means valid JSON exists before e.pos — slice it off.
+        if e.msg.startswith("Extra data"):
+            try:
+                return json.loads(cleaned[: e.pos].strip())
+            except json.JSONDecodeError:
+                pass  # fall through to regex strategy
+
+        # Strategy 4: non-greedy regex to grab the first complete {...} block.
+        match = re.search(r"\{.*?\}", cleaned, flags=re.DOTALL)
         if not match:
             raise e
         try:
