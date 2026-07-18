@@ -34,8 +34,8 @@ def run_pipeline():
     # 2. Voiceover
     print("Generating voiceover...")
     tts = ChatterboxTtsClient(settings)
-    out_dir = Path(settings.OUTPUT_DIR)
-    out_dir.mkdir(exist_ok=True)
+    out_dir = Path(settings.output_dir)
+    out_dir.mkdir(exist_ok=True, parents=True)
     base_audio_path = out_dir / "full_audio.wav"
     
     # In a real run, this generates the TTS
