@@ -6,19 +6,18 @@ app = modal.App("avatar-pipeline")
 volume = modal.Volume.from_name("avatar-models", create_if_missing=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# IMAGE 1: Hallo2 — frozen 2023-era deps, no modern diffusers allowed here
+# IMAGE 1: LatentSync 1.6 (ByteDance 2025) — modern, clean Stable Diffusion
+#          based lip sync. No ancient dependency baggage.
 # ─────────────────────────────────────────────────────────────────────────────
-hallo2_image = (
+latentsync_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .apt_install("git", "ffmpeg", "libgl1", "libglib2.0-0")
-    .run_commands("git clone https://github.com/fudan-generative-vision/hallo2.git /hallo2")
-    .run_commands("pip install -r /hallo2/requirements.txt")
-    # Upgrade only torch/cuda — leave transformers/diffusers at hallo2-pinned versions
-    .run_commands("pip install -U torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121")
+    .apt_install("git", "ffmpeg", "libgl1", "libglib2.0-0", "libsm6", "libxrender1", "libxext6")
+    .run_commands("git clone https://github.com/bytedance/LatentSync.git /latentsync")
+    .run_commands("pip install -r /latentsync/requirements.txt")
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
-# IMAGE 2: Wan 2.1 — modern stack, no hallo2 baggage at all
+# IMAGE 2: Wan 2.1 — modern text-to-video, completely isolated deps
 # ─────────────────────────────────────────────────────────────────────────────
 wan_image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -33,7 +32,7 @@ wan_image = (
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# MODEL DOWNLOADER — runs on wan_image (has huggingface_hub modern)
+# MODEL DOWNLOADER — downloads both model sets to the shared volume
 # ─────────────────────────────────────────────────────────────────────────────
 @app.function(
     image=wan_image,
@@ -45,16 +44,16 @@ def download_models():
     import os
 
     print("Checking if models are already downloaded...")
-    hallo2_ready = os.path.exists("/models/hallo2/net_g.pth") or os.path.exists("/models/hallo2/config.json")
+    latentsync_ready = os.path.exists("/models/latentsync/unet.pt")
     wan_ready = os.path.exists("/models/wan/model_index.json")
 
-    if hallo2_ready and wan_ready:
+    if latentsync_ready and wan_ready:
         print("Both model sets already cached on volume.")
         return
 
-    if not hallo2_ready:
-        print("Downloading Hallo2 model weights...")
-        huggingface_hub.snapshot_download("fudan-generative-ai/hallo2", local_dir="/models/hallo2")
+    if not latentsync_ready:
+        print("Downloading LatentSync 1.6 model weights...")
+        huggingface_hub.snapshot_download("ByteDance/LatentSync-1.6", local_dir="/models/latentsync")
 
     if not wan_ready:
         print("Downloading Wan 2.1 model weights...")
@@ -65,10 +64,12 @@ def download_models():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# GENERATE AVATAR — uses hallo2_image (isolated old deps)
+# GENERATE AVATAR — LatentSync 1.6 lip sync
+#   Input:  WAV audio bytes + JPEG photo bytes
+#   Output: MP4 bytes of the face animating to the audio
 # ─────────────────────────────────────────────────────────────────────────────
 @app.function(
-    image=hallo2_image,
+    image=latentsync_image,
     gpu="a100-80gb",
     timeout=3600,
     retries=3,
@@ -79,7 +80,7 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
     import subprocess
     import os
 
-    print("Generating avatar clip using Hallo2...")
+    print("Generating avatar clip using LatentSync 1.6...")
 
     with tempfile.TemporaryDirectory() as td:
         audio_path = os.path.join(td, "audio.wav")
@@ -91,33 +92,35 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
         with open(photo_path, "wb") as f:
             f.write(photo_bytes)
 
-        config_path = os.path.join(td, "config.yaml")
-        yaml_content = f"""source_image: "{photo_path}"
-driving_audio: "{audio_path}"
-save_path: "{output_path}"
-model_path: "/models/hallo2"
-"""
-        with open(config_path, "w") as f:
-            f.write(yaml_content)
-
-        cmd = ["python", "/hallo2/scripts/inference_long.py", "--config", config_path]
+        # LatentSync inference script
+        # It takes: --video_path (we pass the image, it creates a looping reference),
+        #           --audio_path, --output_path, --ckpt_path
+        cmd = [
+            "python", "/latentsync/inference.py",
+            "--unet_config_path", "/latentsync/configs/unet/second_stage.yaml",
+            "--inference_ckpt_path", "/models/latentsync/unet.pt",
+            "--audio_path", audio_path,
+            "--video_path", photo_path,
+            "--video_out_path", output_path,
+            "--seed", "42",
+        ]
 
         try:
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True, cwd="/latentsync")
             if os.path.exists(output_path):
                 with open(output_path, "rb") as f:
                     return f.read()
             else:
                 raise RuntimeError(
-                    f"Hallo2 finished without error but output.mp4 not found.\nstdout:\n{result.stdout}"
+                    f"LatentSync finished but output.mp4 not found.\nSTDOUT:\n{result.stdout}"
                 )
         except subprocess.CalledProcessError as e:
             err_msg = e.stderr if e.stderr else e.stdout
-            raise RuntimeError(f"Hallo2 crashed!\nSTDERR:\n{err_msg}") from e
+            raise RuntimeError(f"LatentSync crashed!\nSTDERR:\n{err_msg}") from e
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# GENERATE B-ROLL — uses wan_image (modern stack, no hallo2 baggage)
+# GENERATE B-ROLL — Wan 2.1 text-to-video, isolated modern stack
 # ─────────────────────────────────────────────────────────────────────────────
 @app.function(
     image=wan_image,
