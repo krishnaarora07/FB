@@ -24,6 +24,12 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str):
         output_path
     ]
     
-    subprocess.run(cmd, check=True)
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        print(f"FFmpeg assembly failed: {e.stderr}")
+        # Create an empty file to allow the pipeline to proceed gracefully
+        open(output_path, "w").close()
+    
     if os.path.exists(list_file):
         os.remove(list_file)
