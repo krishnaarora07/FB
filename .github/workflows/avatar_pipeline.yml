@@ -11,6 +11,9 @@ jobs:
     timeout-minutes: 180
     permissions:
       contents: write
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
       
     steps:
       - name: Checkout repository
