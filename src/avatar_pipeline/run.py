@@ -39,7 +39,7 @@ def run_pipeline():
     base_audio_path = out_dir / "full_audio.wav"
     
     # In a real run, this generates the TTS
-    tts.create_voiceover(topic.script, str(base_audio_path))
+    tts.create_voiceover(topic.script, base_audio_path)
     
     if not base_audio_path.exists():
         # Fallback dummy for testing
