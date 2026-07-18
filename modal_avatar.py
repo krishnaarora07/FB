@@ -139,17 +139,15 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
         ]
 
         try:
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True, cwd="/latentsync")
+            # capture_output=False allows LatentSync progress bars to stream to GitHub Actions logs!
+            result = subprocess.run(cmd, check=True, cwd="/latentsync")
             if os.path.exists(output_path):
                 with open(output_path, "rb") as f:
                     return f.read()
             else:
-                raise RuntimeError(
-                    f"LatentSync finished but output.mp4 not found.\nSTDOUT:\n{result.stdout}"
-                )
+                raise RuntimeError("LatentSync finished but output.mp4 not found.")
         except subprocess.CalledProcessError as e:
-            err_msg = e.stderr if e.stderr else e.stdout
-            raise RuntimeError(f"LatentSync crashed!\nSTDERR:\n{err_msg}") from e
+            raise RuntimeError(f"LatentSync crashed with exit code {e.returncode}!") from e
 
 
 # ─────────────────────────────────────────────────────────────────────────────
