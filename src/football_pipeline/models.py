@@ -87,6 +87,8 @@ class TopicPackage:
     # Viral enhancement fields (optional — safe defaults for backward compat)
     viral_story_type: str = ""        # SHOCK | OUTRAGE | DISBELIEF | PRIDE | URGENCY | HUMOUR
     debate_bait_comment: str = ""     # Binary question to pin as first comment after upload
+    # Avatar pipeline field — never read by the daily pipeline
+    source_article_url: str = ""      # URL of the RSS article this script is based on
 
     @classmethod
     def from_dict(cls, data: dict) -> "TopicPackage":
@@ -102,6 +104,7 @@ class TopicPackage:
             visual_segments=data.get("visual_segments") or [],
             viral_story_type=str(data.get("viral_story_type") or ""),
             debate_bait_comment=str(data.get("debate_bait_comment") or ""),
+            source_article_url=str(data.get("source_article_url") or ""),
         )
 
 

@@ -180,6 +180,9 @@ class NewsItem:
     description: str
     pub_date: datetime = field(default_factory=lambda: datetime.min.replace(tzinfo=timezone.utc))
     viral_score: int = 0
+    # Avatar pipeline fields — never read by the daily pipeline
+    article_url: str = ""
+    image_url: str = ""
 
 
 class RSSClient:
@@ -262,12 +265,32 @@ class RSSClient:
 
                 if title:
                     score = _viral_score(title, pub_date)
+
+                    # Extract article URL
+                    link_elem = item.find("link")
+                    article_url = (link_elem.text or "").strip() if link_elem is not None else ""
+
+                    # Extract image from RSS media tags (for avatar pipeline B-roll)
+                    _MEDIA_NS = "http://search.yahoo.com/mrss/"
+                    image_url = ""
+                    mc = item.find(f"{{{_MEDIA_NS}}}content")
+                    mt = item.find(f"{{{_MEDIA_NS}}}thumbnail")
+                    en = item.find("enclosure")
+                    if mc is not None and mc.get("url"):
+                        image_url = mc.get("url")
+                    elif mt is not None and mt.get("url"):
+                        image_url = mt.get("url")
+                    elif en is not None and en.get("type", "").startswith("image"):
+                        image_url = en.get("url", "")
+
                     items.append(NewsItem(
                         source=tagged_source,
                         title=title.strip(),
                         description=desc.strip(),
                         pub_date=pub_date,
                         viral_score=score,
+                        article_url=article_url,
+                        image_url=image_url,
                     ))
                     count += 1
 
