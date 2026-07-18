@@ -51,6 +51,7 @@ longcat_image = (
     .run_commands(
         "git clone https://github.com/meituan-longcat/LongCat-Video.git /workspace/LongCat-Video",
         "sed -i '/libsndfile1/d' /workspace/LongCat-Video/requirements_avatar.txt",
+        "sed -i '/tritonserverclient/d' /workspace/LongCat-Video/requirements_avatar.txt",
         "cd /workspace/LongCat-Video && pip install -r requirements_avatar.txt",
         "pip install huggingface_hub[cli]",
     )
