@@ -58,16 +58,21 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
         with open(photo_path, "wb") as f:
             f.write(photo_bytes)
             
-        # Hallo2 expects to run via its inference script.
-        # We cloned it to /hallo2 during image build.
-        # The weights are in /models/hallo2
-        # Example invocation (simplified, assuming inference.py handles this):
+        config_path = os.path.join(td, "config.yaml")
+        
+        # Hallo2 uses a YAML config file for inference
+        yaml_content = f"""
+source_image: "{photo_path}"
+driving_audio: "{audio_path}"
+save_path: "{output_path}"
+model_path: "/models/hallo2"
+"""
+        with open(config_path, "w") as f:
+            f.write(yaml_content)
+            
         cmd = [
-            "python", "/hallo2/scripts/inference.py",
-            "--source_image", photo_path,
-            "--driving_audio", audio_path,
-            "--output", output_path,
-            "--model_path", "/models/hallo2"
+            "python", "/hallo2/scripts/inference_long.py",
+            "--config", config_path
         ]
         
         try:
