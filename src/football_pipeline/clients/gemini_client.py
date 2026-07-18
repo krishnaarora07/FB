@@ -212,16 +212,20 @@ class GeminiTopicClient:
             if not topic_text:
                 raise RuntimeError("Gemini returned an empty response — check your API key and model.")
 
-            data = _parse_jsonish(topic_text)
-            if "visual_segments" in data:
-                data["script"] = " ".join([seg.get("text", "") for seg in data["visual_segments"]])
-                bq = []
-                for seg in data["visual_segments"]:
-                    if "broll_queries" in seg:
-                        bq.extend(seg["broll_queries"])
-                    elif "broll_query" in seg:
-                        bq.append(seg["broll_query"])
-                data["broll_queries"] = bq
+            try:
+                data = _parse_jsonish(topic_text)
+                if "visual_segments" in data:
+                    data["script"] = " ".join([seg.get("text", "") for seg in data["visual_segments"]])
+                    bq = []
+                    for seg in data["visual_segments"]:
+                        if "broll_queries" in seg:
+                            bq.extend(seg["broll_queries"])
+                        elif "broll_query" in seg:
+                            bq.append(seg["broll_query"])
+                    data["broll_queries"] = bq
+            except Exception as e:
+                print(f"  ⚠️ JSON parse error on {used_model}: {e}. Retrying...", flush=True)
+                continue
 
             # --- Citation Validation --- 
             # Check that the cited headline actually exists in the news feed
