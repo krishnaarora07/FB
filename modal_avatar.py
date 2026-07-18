@@ -45,15 +45,25 @@ def download_models():
 
     print("Checking if models are already downloaded...")
     latentsync_ready = os.path.exists("/models/latentsync/latentsync_unet.pt")
+    whisper_ready = os.path.exists("/models/latentsync/whisper/tiny.pt")
     wan_ready = os.path.exists("/models/wan/model_index.json")
 
-    if latentsync_ready and wan_ready:
-        print("Both model sets already cached on volume.")
+    if latentsync_ready and whisper_ready and wan_ready:
+        print("All model sets already cached on volume.")
         return
 
     if not latentsync_ready:
         print("Downloading LatentSync 1.6 model weights...")
         huggingface_hub.snapshot_download("ByteDance/LatentSync-1.6", local_dir="/models/latentsync")
+
+    if not whisper_ready:
+        import urllib.request
+        print("Downloading Whisper tiny model for LatentSync audio encoder...")
+        os.makedirs("/models/latentsync/whisper", exist_ok=True)
+        # OpenAI Whisper tiny model weights
+        whisper_url = "https://openaipublic.azureedge.net/main/whisper/models/65147644a518d12f04e32d6f3b26facc3f8dd46e5390956a9424a650c0ce22b9/tiny.pt"
+        urllib.request.urlretrieve(whisper_url, "/models/latentsync/whisper/tiny.pt")
+        print("Whisper tiny.pt downloaded.")
 
     if not wan_ready:
         print("Downloading Wan 2.1 model weights...")
@@ -102,6 +112,18 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
             ref_video_path
         ]
         subprocess.run(ffmpeg_cmd, check=True, capture_output=True)
+
+        # LatentSync expects a 'checkpoints/' dir relative to its CWD.
+        # Symlink the volume model directory so all paths resolve correctly.
+        import shutil
+        checkpoints_link = "/latentsync/checkpoints"
+        if os.path.islink(checkpoints_link) or os.path.exists(checkpoints_link):
+            if os.path.islink(checkpoints_link):
+                os.unlink(checkpoints_link)
+            else:
+                shutil.rmtree(checkpoints_link)
+        os.symlink("/models/latentsync", checkpoints_link)
+        print("Symlinked /latentsync/checkpoints -> /models/latentsync")
 
         # LatentSync: python -m scripts.inference
         cmd = [
