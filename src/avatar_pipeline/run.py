@@ -12,7 +12,7 @@ import modal_avatar
 from src.avatar_pipeline import assembler
 
 def run_pipeline():
-    settings = Settings()
+    settings = Settings.from_env()
     
     # 1. Script
     print("Fetching news...")
