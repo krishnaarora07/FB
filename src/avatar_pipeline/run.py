@@ -63,10 +63,10 @@ def run_pipeline():
     photo_bytes = photo_path.read_bytes() if photo_path.exists() else b"dummy_photo"
     
     clip_paths = []
+    generate_avatar = modal.Function.lookup("avatar-pipeline", "generate_avatar")
     for i, achunk in enumerate(audio_chunks):
         audio_bytes = achunk.read_bytes()
         print(f"Generating avatar clip {i}...")
-        generate_avatar = modal.Function.lookup("avatar-pipeline", "generate_avatar")
         video_bytes = generate_avatar.remote(audio_bytes, photo_bytes)
         cpath = out_dir / f"clip_{i:02d}.mp4"
         cpath.write_bytes(video_bytes)
@@ -76,10 +76,10 @@ def run_pipeline():
     print("Generating B-roll clips via Modal...")
     broll_paths = []
     segments = topic.visual_segments[:5]
+    generate_broll = modal.Function.lookup("avatar-pipeline", "generate_broll")
     for i, seg in enumerate(segments):
         desc = seg.get("broll_query", "football match scene")
         print(f"Generating broll {i}: {desc}...")
-        generate_broll = modal.Function.lookup("avatar-pipeline", "generate_broll")
         vbytes = generate_broll.remote(desc, 8)
         bpath = out_dir / f"broll_{i:02d}.mp4"
         bpath.write_bytes(vbytes)
