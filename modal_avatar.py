@@ -21,7 +21,7 @@ latentsync_image = (
 # ─────────────────────────────────────────────────────────────────────────────
 wan_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .apt_install("ffmpeg")
+    .apt_install("git", "ffmpeg")
     .pip_install(
         "torch", "torchvision", "torchaudio",
         "transformers", "huggingface_hub", "accelerate", "sentencepiece",
