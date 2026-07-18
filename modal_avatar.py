@@ -46,10 +46,11 @@ def generate_broll(prompt: str, duration_seconds: int) -> bytes:
 # --- AVATAR (LongCat-Video-Avatar-1.5) ---
 longcat_image = (
     modal.Image.debian_slim(python_version="3.10")
-    .apt_install("git", "ffmpeg", "wget")
+    .apt_install("git", "ffmpeg", "wget", "libsndfile1")
     .pip_install("torch==2.3.0", "torchvision", "torchaudio")
     .run_commands(
         "git clone https://github.com/meituan-longcat/LongCat-Video.git /workspace/LongCat-Video",
+        "sed -i '/libsndfile1/d' /workspace/LongCat-Video/requirements_avatar.txt",
         "cd /workspace/LongCat-Video && pip install -r requirements_avatar.txt",
         "pip install huggingface_hub[cli]",
     )
