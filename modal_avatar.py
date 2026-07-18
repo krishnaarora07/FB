@@ -11,6 +11,28 @@ volume = modal.Volume.from_name("avatar-models", create_if_missing=True)
 
 @app.function(
     image=image,
+    timeout=3600,
+    volumes={"/models": volume}
+)
+def download_models():
+    import huggingface_hub
+    import os
+    
+    print("Checking if models are already downloaded...")
+    if os.path.exists("/models/loopy") and os.path.exists("/models/hunyuan"):
+        print("Models are already downloaded to the volume!")
+        return
+        
+    print("Downloading massive AI models on cheap CPU instance to save money...")
+    huggingface_hub.snapshot_download("ByteDance-Seed/Loopy", local_dir="/models/loopy")
+    huggingface_hub.snapshot_download("tencent/HunyuanVideo", local_dir="/models/hunyuan")
+    
+    # Save the volume state
+    volume.commit()
+    print("Download complete and cached to Volume.")
+
+@app.function(
+    image=image,
     gpu="a100-80gb",
     timeout=3600,
     retries=3,

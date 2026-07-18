@@ -67,6 +67,9 @@ jobs:
       - name: Deploy to Modal
         run: modal deploy modal_avatar.py
 
+      - name: Pre-download models to Persistent Volume (CPU-only, saves $)
+        run: modal run modal_avatar.py::download_models
+
       - name: Run Avatar Pipeline
         run: python -m src.avatar_pipeline.run
 
