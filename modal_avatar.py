@@ -44,7 +44,7 @@ def download_models():
     import os
 
     print("Checking if models are already downloaded...")
-    latentsync_ready = os.path.exists("/models/latentsync/unet.pt")
+    latentsync_ready = os.path.exists("/models/latentsync/latentsync_unet.pt")
     wan_ready = os.path.exists("/models/wan/model_index.json")
 
     if latentsync_ready and wan_ready:
@@ -85,6 +85,7 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
     with tempfile.TemporaryDirectory() as td:
         audio_path = os.path.join(td, "audio.wav")
         photo_path = os.path.join(td, "photo.jpg")
+        ref_video_path = os.path.join(td, "ref_video.mp4")
         output_path = os.path.join(td, "output.mp4")
 
         with open(audio_path, "wb") as f:
@@ -92,15 +93,25 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
         with open(photo_path, "wb") as f:
             f.write(photo_bytes)
 
-        # LatentSync inference script
-        # It takes: --video_path (we pass the image, it creates a looping reference),
-        #           --audio_path, --output_path, --ckpt_path
+        # LatentSync needs a video as input, not a static photo.
+        # Convert the photo into a short looping video at 25fps.
+        ffmpeg_cmd = [
+            "ffmpeg", "-y", "-loop", "1", "-i", photo_path,
+            "-t", "5", "-r", "25", "-vf", "scale=512:512",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            ref_video_path
+        ]
+        subprocess.run(ffmpeg_cmd, check=True, capture_output=True)
+
+        # LatentSync: python -m scripts.inference
         cmd = [
-            "python", "/latentsync/inference.py",
-            "--unet_config_path", "/latentsync/configs/unet/second_stage.yaml",
-            "--inference_ckpt_path", "/models/latentsync/unet.pt",
+            "python", "-m", "scripts.inference",
+            "--unet_config_path", "/latentsync/configs/unet/stage2_512.yaml",
+            "--inference_ckpt_path", "/models/latentsync/latentsync_unet.pt",
+            "--inference_steps", "20",
+            "--guidance_scale", "1.0",
+            "--video_path", ref_video_path,
             "--audio_path", audio_path,
-            "--video_path", photo_path,
             "--video_out_path", output_path,
             "--seed", "42",
         ]
