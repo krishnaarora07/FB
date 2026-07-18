@@ -60,7 +60,12 @@ def run_pipeline():
     # 3. Avatar clips
     print("Generating avatar clips via Modal...")
     photo_path = Path("assets/avatar_photo.jpg")
-    photo_bytes = photo_path.read_bytes() if photo_path.exists() else b"dummy_photo"
+    if not photo_path.exists():
+        raise FileNotFoundError(
+            "assets/avatar_photo.jpg not found! "
+            "Place the avatar face photo in the assets/ directory before running."
+        )
+    photo_bytes = photo_path.read_bytes()
     
     clip_paths = []
     generate_avatar = modal.Function.from_name("avatar-pipeline", "generate_avatar")

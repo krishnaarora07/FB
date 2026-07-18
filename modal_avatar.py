@@ -82,7 +82,7 @@ def download_models():
     image=latentsync_image,
     gpu="a100-80gb",
     timeout=3600,
-    retries=3,
+    retries=1,
     volumes={"/models": volume}
 )
 def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
