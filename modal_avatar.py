@@ -7,8 +7,8 @@ image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("git", "ffmpeg")
     .run_commands("git clone https://github.com/fudan-generative-vision/hallo2.git /hallo2")
-    .pip_install("torch", "torchaudio", "torchvision", "gradio-client", "huggingface_hub", "diffusers", "accelerate", "xformers", "opencv-python")
-    # For a full implementation, we'd do: .pip_install("-r", "/hallo2/requirements.txt")
+    .pip_install("torch", "torchaudio", "torchvision", "gradio-client", "huggingface_hub", "accelerate", "xformers", "opencv-python", "transformers", "sentencepiece", "protobuf", "imageio-ffmpeg")
+    .run_commands("pip install git+https://github.com/huggingface/diffusers.git")
 )
 volume = modal.Volume.from_name("avatar-models", create_if_missing=True)
 
@@ -22,13 +22,13 @@ def download_models():
     import os
     
     print("Checking if models are already downloaded...")
-    if os.path.exists("/models/hallo2") and os.path.exists("/models/hunyuan"):
+    if os.path.exists("/models/hallo2") and os.path.exists("/models/wan"):
         print("Models are already downloaded to the volume!")
         return
         
     print("Downloading massive AI models on cheap CPU instance to save money...")
     huggingface_hub.snapshot_download("fudan-generative-ai/hallo2", local_dir="/models/hallo2")
-    huggingface_hub.snapshot_download("tencent/HunyuanVideo", local_dir="/models/hunyuan")
+    huggingface_hub.snapshot_download("Wan-AI/Wan2.1-T2V-1.3B-Diffusers", local_dir="/models/wan")
     
     # Save the volume state
     volume.commit()
@@ -80,16 +80,11 @@ model_path: "/models/hallo2"
             if os.path.exists(output_path):
                 with open(output_path, "rb") as f:
                     return f.read()
+            else:
+                raise RuntimeError("Hallo2 completed but output.mp4 was not found.")
         except subprocess.CalledProcessError as e:
             print(f"Hallo2 generation failed: {e.stderr}")
-            # Fallback: create a valid 1-second blank MP4 with silent audio
-            subprocess.run([
-                "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=1280x720:d=1",
-                "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-shortest",
-                "-c:v", "libx264", "-c:a", "aac", output_path
-            ], check=True, capture_output=True)
-            with open(output_path, "rb") as f:
-                return f.read()
+            raise e
 
 @app.function(
     image=image,
@@ -99,17 +94,24 @@ model_path: "/models/hallo2"
 )
 def generate_broll(prompt: str, duration_seconds: int) -> bytes:
     import tempfile
-    import subprocess
     import os
-    print(f"Generating B-roll for prompt: {prompt} for {duration_seconds} seconds using HunyuanVideo 1.5...")
-    # ... real implementation goes here ...
-    # Fallback: create a valid dummy MP4
+    import torch
+    from diffusers import WanPipeline
+    from diffusers.utils import export_to_video
+    
+    print(f"Generating B-roll for prompt: '{prompt}' for {duration_seconds} seconds using Wan2.1...")
+    
+    model_dir = "/models/wan"
+    pipe = WanPipeline.from_pretrained(model_dir, torch_dtype=torch.bfloat16)
+    pipe.to("cuda")
+    
+    # Wan 2.1 produces 16 fps video. We cap at 81 frames (~5 seconds) to avoid OOM on A100.
+    num_frames = min(int(duration_seconds * 16), 81)
+    
+    video = pipe(prompt, num_frames=num_frames, num_inference_steps=50).frames[0]
+    
     with tempfile.TemporaryDirectory() as td:
         output_path = os.path.join(td, "output.mp4")
-        subprocess.run([
-            "ffmpeg", "-y", "-f", "lavfi", "-i", f"color=c=blue:s=1280x720:d={duration_seconds}",
-            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-shortest",
-            "-c:v", "libx264", "-c:a", "aac", output_path
-        ], check=True, capture_output=True)
+        export_to_video(video, output_path, fps=16)
         with open(output_path, "rb") as f:
             return f.read()
