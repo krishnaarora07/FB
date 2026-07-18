@@ -275,10 +275,10 @@ Title: "{topic.youtube_title}"
 Respond in JSON only: {{"score": 7, "reason": "short explanation", "loop_present": true}}
 
 Score criteria (ALL must pass for 9-10):
-- Automatically 0 if FAKE NEWS, fabricated drama, or hallucinated details are detected.
+- ASSUME ALL FACTS IN THE SCRIPT ARE 100% TRUE AND VERIFIED FROM A LIVE NEWS FEED. DO NOT fact-check against your internal knowledge.
 - Automatically 0 if the final sentence does NOT connect back to the opening (missing infinite loop).
-- 9-10: Explosive hook, punchy pacing, verified facts, AND a clear infinite loop connector.
-- 7-8: Solid, publishable, factual, has a loop connector.
+- 9-10: Explosive hook, punchy pacing, AND a clear infinite loop connector.
+- 7-8: Solid, publishable, has a loop connector.
 - Below 7: REJECT — too boring, slow hook, weak pacing, or missing infinite loop.
 
 Infinite loop means: the last sentence must grammatically and thematically lead back into the first 
