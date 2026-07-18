@@ -19,12 +19,12 @@ def download_models():
     import os
     
     print("Checking if models are already downloaded...")
-    if os.path.exists("/models/loopy") and os.path.exists("/models/hunyuan"):
+    if os.path.exists("/models/liveportrait") and os.path.exists("/models/hunyuan"):
         print("Models are already downloaded to the volume!")
         return
         
     print("Downloading massive AI models on cheap CPU instance to save money...")
-    huggingface_hub.snapshot_download("ByteDance-Seed/Loopy", local_dir="/models/loopy")
+    huggingface_hub.snapshot_download("KwaiVGI/LivePortrait", local_dir="/models/liveportrait")
     huggingface_hub.snapshot_download("tencent/HunyuanVideo", local_dir="/models/hunyuan")
     
     # Save the volume state
