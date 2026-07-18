@@ -93,7 +93,7 @@ def run_pipeline():
     # 5. Assemble & Upload
     print("Assembling final video...")
     final_vid = out_dir / "final_avatar_video.mp4"
-    assembler.assemble(clip_paths, broll_paths, str(final_vid))
+    assembler.assemble(clip_paths, broll_paths, str(final_vid), str(base_audio_path))
     
     print("Uploading to YouTube...")
     uploader = YouTubeUploader(settings)
