@@ -8,8 +8,8 @@ from src.football_pipeline.clients.gemini_client import GeminiTopicClient
 from src.football_pipeline.clients.chatterbox_tts_client import ChatterboxTtsClient
 from src.football_pipeline.youtube_upload import YouTubeUploader
 from src.football_pipeline.config import Settings
-import modal_avatar
 from src.avatar_pipeline import assembler
+import modal
 
 def run_pipeline():
     settings = Settings.from_env()
@@ -66,7 +66,8 @@ def run_pipeline():
     for i, achunk in enumerate(audio_chunks):
         audio_bytes = achunk.read_bytes()
         print(f"Generating avatar clip {i}...")
-        video_bytes = modal_avatar.generate_avatar.remote(audio_bytes, photo_bytes)
+        generate_avatar = modal.Function.lookup("avatar-pipeline", "generate_avatar")
+        video_bytes = generate_avatar.remote(audio_bytes, photo_bytes)
         cpath = out_dir / f"clip_{i:02d}.mp4"
         cpath.write_bytes(video_bytes)
         clip_paths.append(str(cpath))
@@ -78,7 +79,8 @@ def run_pipeline():
     for i, seg in enumerate(segments):
         desc = seg.get("broll_query", "football match scene")
         print(f"Generating broll {i}: {desc}...")
-        vbytes = modal_avatar.generate_broll.remote(desc, 8)
+        generate_broll = modal.Function.lookup("avatar-pipeline", "generate_broll")
+        vbytes = generate_broll.remote(desc, 8)
         bpath = out_dir / f"broll_{i:02d}.mp4"
         bpath.write_bytes(vbytes)
         broll_paths.append(str(bpath))
