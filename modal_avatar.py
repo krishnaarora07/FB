@@ -7,6 +7,7 @@ image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("git", "ffmpeg")
     .run_commands("git clone https://github.com/fudan-generative-vision/hallo2.git /hallo2")
+    .run_commands("pip install -r /hallo2/requirements.txt")
     .pip_install("torch", "torchaudio", "torchvision", "gradio-client", "huggingface_hub", "accelerate", "xformers", "opencv-python", "transformers", "sentencepiece", "protobuf", "imageio-ffmpeg")
     .run_commands("pip install git+https://github.com/huggingface/diffusers.git")
 )
@@ -83,8 +84,8 @@ model_path: "/models/hallo2"
             else:
                 raise RuntimeError("Hallo2 completed but output.mp4 was not found.")
         except subprocess.CalledProcessError as e:
-            print(f"Hallo2 generation failed: {e.stderr}")
-            raise e
+            err_msg = e.stderr if e.stderr else e.stdout
+            raise RuntimeError(f"Hallo2 crashed during generation!\nError Log:\n{err_msg}") from e
 
 @app.function(
     image=image,
