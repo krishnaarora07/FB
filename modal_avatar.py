@@ -81,9 +81,14 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
     with open(audio_path, "wb") as f: f.write(audio_bytes)
     with open(photo_path, "wb") as f: f.write(photo_bytes)
         
+    base_model_dir = "/models/LongCat-Video"
+    if not os.path.exists(os.path.join(base_model_dir, "config.json")):
+        print("Downloading LongCat Base model...")
+        subprocess.run(["hf", "download", "meituan-longcat/LongCat-Video", "--local-dir", base_model_dir], check=True)
+
     model_dir = "/models/LongCat-Video-Avatar-1.5"
     if not os.path.exists(os.path.join(model_dir, "config.json")):
-        print("Downloading LongCat model...")
+        print("Downloading LongCat Avatar model...")
         subprocess.run(["hf", "download", "meituan-longcat/LongCat-Video-Avatar-1.5", "--local-dir", model_dir], check=True)
         
     input_json_path = "/tmp/input.json"
@@ -156,17 +161,27 @@ def _download_ltx():
 def _download_longcat():
     """Pre-download LongCat-Video-Avatar-1.5 weights into the persistent volume."""
     os.environ["HF_HOME"] = "/models/huggingface"
+    
+    # Base model (Tokenizer, VAE, etc.)
+    base_model_dir = "/models/LongCat-Video"
+    if not os.path.exists(os.path.join(base_model_dir, "config.json")):
+        print("Downloading LongCat Base model weights...")
+        subprocess.run(
+            ["hf", "download", "meituan-longcat/LongCat-Video", "--local-dir", base_model_dir],
+            check=True
+        )
+        
+    # Avatar model (DiT weights)
     model_dir = "/models/LongCat-Video-Avatar-1.5"
     if not os.path.exists(os.path.join(model_dir, "config.json")):
-        print("Downloading LongCat model weights...")
+        print("Downloading LongCat Avatar model weights...")
         subprocess.run(
             ["hf", "download", "meituan-longcat/LongCat-Video-Avatar-1.5", "--local-dir", model_dir],
             check=True
         )
-        volume.commit()
-        print("LongCat weights cached.")
-    else:
-        print("LongCat weights already cached, skipping.")
+        
+    volume.commit()
+    print("LongCat weights cached.")
 
 
 @app.local_entrypoint()
