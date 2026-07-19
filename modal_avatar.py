@@ -62,6 +62,7 @@ longcat_image = (
         "cd /workspace/LongCat-Video && pip install -r requirements_avatar.txt",
         "pip install -U 'huggingface_hub[cli]' hf",
     )
+    .pip_install("transformers", "accelerate", "diffusers", "sentencepiece", "einops")
 )
 
 @app.function(image=longcat_image, gpu="a100", timeout=3600, volumes={"/models": volume}, retries=3)
