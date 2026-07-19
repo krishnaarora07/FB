@@ -20,7 +20,7 @@ ltx_image = (
     .pip_install("transformers", "accelerate", "imageio", "imageio-ffmpeg", "sentencepiece")
 )
 
-@app.function(image=ltx_image, gpu="l4", timeout=3600, volumes={"/models": volume})
+@app.function(image=ltx_image, gpu="a100-80gb", timeout=3600, volumes={"/models": volume})
 def generate_broll(prompt: str, duration_seconds: int) -> bytes:
     import torch
     from diffusers import LTXPipeline
@@ -72,7 +72,7 @@ longcat_image = (
     .pip_install("https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3.post1+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl")
 )
 
-@app.function(image=longcat_image, gpu="a100", timeout=3600, volumes={"/models": volume}, retries=3)
+@app.function(image=longcat_image, gpu="a100-80gb", timeout=3600, volumes={"/models": volume}, retries=3)
 def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
     import json
     import math
@@ -150,7 +150,7 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
 
 # --- MODEL PRE-DOWNLOAD FUNCTIONS ---
 
-@app.function(image=ltx_image, gpu="l4", timeout=3600, volumes={"/models": volume})
+@app.function(image=ltx_image, gpu="a100-80gb", timeout=3600, volumes={"/models": volume})
 def _download_ltx():
     """Pre-download LTX-Video weights into the persistent volume."""
     import torch
