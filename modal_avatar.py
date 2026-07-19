@@ -65,7 +65,7 @@ longcat_image = (
         "pip install -U 'huggingface_hub[cli]' hf",
     )
     .pip_install("transformers", "accelerate", "diffusers", "sentencepiece", "einops", "loguru", "ftfy", "regex")
-    .run_commands("pip install flash-attn --no-build-isolation")
+    .pip_install("https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3.post1+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl")
 )
 
 @app.function(image=longcat_image, gpu="a100-80gb", timeout=3600, volumes={"/models": volume}, retries=3)
