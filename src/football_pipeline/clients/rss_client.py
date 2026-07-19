@@ -250,8 +250,8 @@ class RSSClient:
                 pubdate_elem = item.find("pubDate")
 
                 title = title_elem.text if title_elem is not None else ""
-                desc  = (desc_elem.text or "") if desc_elem is not None else ""
-                desc  = re.sub(r"<[^>]+>", "", desc)  # strip HTML tags
+                raw_desc = (desc_elem.text or "") if desc_elem is not None else ""
+                desc  = re.sub(r"<[^>]+>", "", raw_desc)  # strip HTML tags
 
                 # Parse publication date for recency ranking
                 pub_date = datetime.min.replace(tzinfo=timezone.utc)
@@ -282,6 +282,12 @@ class RSSClient:
                         image_url = mt.get("url")
                     elif en is not None and en.get("type", "").startswith("image"):
                         image_url = en.get("url", "")
+                        
+                    # Fallback: Extract image embedded in HTML description
+                    if not image_url and raw_desc:
+                        img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', raw_desc, re.IGNORECASE)
+                        if img_match:
+                            image_url = img_match.group(1)
 
                     items.append(NewsItem(
                         source=tagged_source,

@@ -2,6 +2,7 @@ import os
 import json
 import urllib.request
 import subprocess
+import re
 from pathlib import Path
 from pydub import AudioSegment
 
@@ -28,63 +29,81 @@ def run_pipeline():
         return
         
     # Match article URL and Image URL
-    matched = False
+    def get_words(text):
+        return set(re.findall(r'\w+', str(text).lower()))
+        
+    topic_headline_words = get_words(getattr(topic, "source_headline", ""))
+    best_match = None
+    best_score = -1.0
+    
     for n in news:
+        n_title_words = get_words(n.title)
+        
+        # Exact match logic (fast path)
         if getattr(topic, "source_headline", "") and topic.source_headline.strip().lower() == n.title.strip().lower():
-            object.__setattr__(topic, "source_article_url", n.article_url)
-            object.__setattr__(topic, "source_image_url", n.image_url)
-            matched = True
+            best_match = n
+            best_score = 1.0
             break
             
-    if not matched:
-        # Fallback fuzzy match
-        for n in news:
-            if n.title in topic.topic_title or topic.topic_title in n.title:
-                object.__setattr__(topic, "source_article_url", n.article_url)
-                object.__setattr__(topic, "source_image_url", n.image_url)
-                break
+        # Jaccard similarity fallback
+        if topic_headline_words and n_title_words:
+            intersection = topic_headline_words.intersection(n_title_words)
+            union = topic_headline_words.union(n_title_words)
+            score = len(intersection) / len(union) if union else 0
+            if score > best_score:
+                best_score = score
+                best_match = n
+
+        # Topic title substring fallback
+        elif n.title in topic.topic_title or topic.topic_title in n.title:
+            if best_score < 0.1: # Only override if we haven't found a decent match yet
+                best_score = 0.1
+                best_match = n
+
+    if best_match and best_score >= 0.0:
+        object.__setattr__(topic, "source_article_url", best_match.article_url)
+        object.__setattr__(topic, "source_image_url", best_match.image_url)
             
     # 2. Voiceover
     print("Generating voiceover...")
     tts = FishSpeechClient(settings)
     out_dir = Path(settings.output_dir)
-    out_dir.mkdir(exist_ok=True, parents=True)
-    base_audio_path = out_dir / "full_audio.wav"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    voice_path = out_dir / "voiceover.wav"
     
-    # In a real run, this generates the TTS
-    tts.create_voiceover(topic.script, base_audio_path)
-    
-    if not base_audio_path.exists():
-        # Fallback dummy for testing
-        with open(base_audio_path, "wb") as f:
-            f.write(b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00D\xac\x00\x00\x88X\x01\x00\x02\x00\x10\x00data\x00\x00\x00\x00")
-            
-    # Split audio into 6 chunks
-    audio = AudioSegment.from_wav(str(base_audio_path))
-    chunk_length = len(audio) // 6 if len(audio) > 0 else 1000
-    
-    audio_chunks = []
+    # 2a. Call Modal TTS
+    try:
+        tts.create_voiceover(topic.script, str(voice_path))
+    except Exception as e:
+        print(f"TTS failed: {e}. Falling back to 30s silent audio.")
+        # Create silent fallback
+        silent = AudioSegment.silent(duration=30000)
+        silent.export(voice_path, format="wav")
+        
+    # 2b. Split Voiceover into 6 chunks
+    audio = AudioSegment.from_wav(voice_path)
+    chunk_len = len(audio) // 6
+    audio_paths = []
     for i in range(6):
-        chunk = audio[i*chunk_length : (i+1)*chunk_length]
-        chunk_path = out_dir / f"audio_{i:02d}.wav"
-        chunk.export(chunk_path, format="wav")
-        audio_chunks.append(chunk_path)
+        c = audio[i * chunk_len : (i + 1) * chunk_len]
+        cpath = out_dir / f"audio_{i:02d}.wav"
+        c.export(cpath, format="wav")
+        audio_paths.append(str(cpath))
         
     # 3. Avatar clips
     print("Generating avatar clips via Modal...")
     photo_path = Path("assets/avatar_photo.jpg")
     if not photo_path.exists():
-        raise FileNotFoundError(
-            "assets/avatar_photo.jpg not found! "
-            "Place the avatar face photo in the assets/ directory before running."
-        )
-    photo_bytes = photo_path.read_bytes()
-    
-    clip_paths = []
+        # Make a dummy black image if missing
+        subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=1280x720", "-frames:v", "1", str(photo_path)], capture_output=True)
+        
     generate_avatar = modal.Function.from_name("avatar-pipeline", "generate_avatar")
-    for i, achunk in enumerate(audio_chunks):
-        audio_bytes = achunk.read_bytes()
-        print(f"Generating avatar clip {i}...")
+    clip_paths = []
+    
+    for i, ap in enumerate(audio_paths):
+        print(f"Generating avatar for audio chunk {i}...")
+        audio_bytes = Path(ap).read_bytes()
+        photo_bytes = photo_path.read_bytes()
         video_bytes = generate_avatar.remote(audio_bytes, photo_bytes)
         cpath = out_dir / f"clip_{i:02d}.mp4"
         cpath.write_bytes(video_bytes)
@@ -106,30 +125,33 @@ def run_pipeline():
         except Exception as e:
             print(f"Failed to download RSS image: {e}")
             
-    # Fallback to a black image if download failed or no URL
-    if not rss_img_path.exists():
-        print("Using fallback black image for B-roll.")
-        subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=1280x720", "-frames:v", "1", str(rss_img_path)], capture_output=True)
-        
-    # Convert image to a 5-second video with a slow zoom (Ken Burns effect)
-    print("Applying Ken Burns effect to image...")
-    subprocess.run([
-        "ffmpeg", "-y", "-loop", "1", "-i", str(rss_img_path),
-        "-vf", "scale=-2:10*ih,zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=720x1280",
-        "-c:v", "libx264", "-t", "5", "-pix_fmt", "yuv420p", "-r", "25",
-        str(broll_video_path)
-    ], capture_output=True, check=True)
-    
-    # Use this same generated video for all 5 B-roll segments
-    segments = topic.visual_segments[:5]
-    for i, seg in enumerate(segments):
-        # We can just reuse the same file path for the assembler
-        broll_paths.append(str(broll_video_path))
+    # Check if image exists and is valid (> 1KB to ensure it's not a 0-byte or error page)
+    if rss_img_path.exists() and rss_img_path.stat().st_size > 1024:
+        # Convert image to a 5-second video with a slow zoom (Ken Burns effect)
+        print("Applying Ken Burns effect to image...")
+        try:
+            subprocess.run([
+                "ffmpeg", "-y", "-loop", "1", "-i", str(rss_img_path),
+                "-vf", "scale=-2:10*ih,zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=720x1280",
+                "-c:v", "libx264", "-t", "5", "-pix_fmt", "yuv420p", "-r", "25",
+                str(broll_video_path)
+            ], capture_output=True, check=True)
+            
+            # Use this same generated video for all 5 B-roll segments
+            segments = topic.visual_segments[:5]
+            for i, seg in enumerate(segments):
+                broll_paths.append(str(broll_video_path))
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to create B-roll video: {e}")
+            broll_paths = []
+    else:
+        print("Missing or invalid RSS image. Falling back to full-screen avatar.")
+        broll_paths = []
         
     # 5. Assemble & Upload
     print("Assembling final video...")
     final_vid = out_dir / "final_avatar_video.mp4"
-    assembler.assemble(clip_paths, broll_paths, str(final_vid), str(base_audio_path))
+    assembler.assemble(clip_paths, broll_paths, str(final_vid), str(voice_path))
     
     print("Uploading to YouTube...")
     uploader = YouTubeUploader(settings)
