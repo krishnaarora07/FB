@@ -12,10 +12,11 @@ fish_speech_image = (
     modal.Image.debian_slim(python_version="3.10")
     .apt_install("git", "ffmpeg", "curl", "wget", "build-essential")
     .run_commands(
-        "pip install torch==2.5.1 torchaudio==2.5.1 torchvision==0.20.1 --extra-index-url https://download.pytorch.org/whl/cu121",
+        "pip install uv",
+        "uv pip install --system torch==2.5.1 torchaudio==2.5.1 torchvision==0.20.1 --extra-index-url https://download.pytorch.org/whl/cu121",
         "git clone https://github.com/fishaudio/fish-speech.git /workspace/fish-speech",
-        "cd /workspace/fish-speech && pip install -e .",
-        "pip install -U 'huggingface_hub[cli]' hf requests pydantic"
+        "cd /workspace/fish-speech && uv pip install --system -e .",
+        "uv pip install --system -U 'huggingface_hub[cli]' hf requests pydantic"
     )
 )
 
