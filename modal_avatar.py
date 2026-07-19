@@ -10,7 +10,7 @@ volume = modal.Volume.from_name("avatar-models", create_if_missing=True)
 # --- VOICEOVER (Fish Speech 1.5) ---
 fish_speech_image = (
     modal.Image.debian_slim(python_version="3.10")
-    .apt_install("git", "ffmpeg", "curl", "wget", "build-essential")
+    .apt_install("git", "ffmpeg", "curl", "wget", "build-essential", "portaudio19-dev")
     .run_commands(
         "pip install uv",
         "uv pip install --system torch==2.5.1 torchaudio==2.5.1 torchvision==0.20.1 --extra-index-url https://download.pytorch.org/whl/cu121",
