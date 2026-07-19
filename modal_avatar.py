@@ -177,26 +177,22 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
 
 @app.function(image=longcat_image, timeout=3600, volumes={"/models": volume})
 def _download_longcat():
-    """Pre-download LongCat-Video-Avatar-1.5 weights into the persistent volume."""
+    """Pre-download LongCat-Video-Avatar weights."""
+    import os
+    from huggingface_hub import snapshot_download
     os.environ["HF_HOME"] = "/models/huggingface"
     
     # Base model (Tokenizer, VAE, etc.)
     base_model_dir = "/models/LongCat-Video"
-    if not os.path.exists(os.path.join(base_model_dir, "config.json")):
+    if not os.path.exists(os.path.join(base_model_dir, "model_index.json")):
         print("Downloading LongCat Base model weights...")
-        subprocess.run(
-            ["hf", "download", "meituan-longcat/LongCat-Video", "--local-dir", base_model_dir],
-            check=True
-        )
+        snapshot_download(repo_id="meituan-longcat/LongCat-Video", local_dir=base_model_dir)
         
     # Avatar model (DiT weights)
     model_dir = "/models/LongCat-Video-Avatar-1.5"
     if not os.path.exists(os.path.join(model_dir, "config.json")):
         print("Downloading LongCat Avatar model weights...")
-        subprocess.run(
-            ["hf", "download", "meituan-longcat/LongCat-Video-Avatar-1.5", "--local-dir", model_dir],
-            check=True
-        )
+        snapshot_download(repo_id="meituan-longcat/LongCat-Video-Avatar-1.5", local_dir=model_dir)
         
     volume.commit()
     print("LongCat weights cached.")
@@ -206,15 +202,12 @@ def _download_longcat():
 def _download_fish_speech():
     """Pre-download Fish Speech 1.5 weights into the persistent volume."""
     import os
-    import subprocess
+    from huggingface_hub import snapshot_download
     os.environ["HF_HOME"] = "/models/huggingface"
     base_model_dir = "/models/fish-speech-1.5"
     if not os.path.exists(os.path.join(base_model_dir, "config.json")):
         print("Downloading Fish Speech 1.5 weights...")
-        subprocess.run(
-            ["huggingface-cli", "download", "fishaudio/fish-speech-1.5", "--local-dir", base_model_dir],
-            check=True
-        )
+        snapshot_download(repo_id="fishaudio/fish-speech-1.5", local_dir=base_model_dir)
     volume.commit()
     print("Fish Speech weights cached.")
 
