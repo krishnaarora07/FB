@@ -54,7 +54,9 @@ def generate_broll(prompt: str, duration_seconds: int) -> bytes:
 longcat_image = (
     modal.Image.debian_slim(python_version="3.10")
     .apt_install("git", "ffmpeg", "wget", "libsndfile1")
-    .pip_install("torch==2.3.0", "torchvision", "torchaudio")
+    .run_commands(
+        "python -m pip install torch==2.5.1 torchaudio==2.5.1 torchvision==0.20.1 --extra-index-url https://download.pytorch.org/whl/cu121"
+    )
     .run_commands(
         "git clone https://github.com/meituan-longcat/LongCat-Video.git /workspace/LongCat-Video",
         "sed -i '/libsndfile1/d' /workspace/LongCat-Video/requirements_avatar.txt",
@@ -62,7 +64,7 @@ longcat_image = (
         "cd /workspace/LongCat-Video && pip install -r requirements_avatar.txt",
         "pip install -U 'huggingface_hub[cli]' hf",
     )
-    .pip_install("transformers", "accelerate", "diffusers", "sentencepiece", "einops")
+    .pip_install("transformers", "accelerate", "diffusers", "sentencepiece", "einops", "loguru")
 )
 
 @app.function(image=longcat_image, gpu="a100", timeout=3600, volumes={"/models": volume}, retries=3)
