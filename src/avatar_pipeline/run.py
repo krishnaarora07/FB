@@ -1,5 +1,7 @@
 import os
 import json
+import urllib.request
+import subprocess
 from pathlib import Path
 from pydub import AudioSegment
 
@@ -25,10 +27,11 @@ def run_pipeline():
         print("No topic selected. Exiting.")
         return
         
-    # Match article URL
+    # Match article URL and Image URL
     for n in news:
         if n.title in topic.topic_title or topic.topic_title in n.title:
-            topic.source_article_url = n.article_url
+            object.__setattr__(topic, "source_article_url", n.article_url)
+            object.__setattr__(topic, "source_image_url", n.image_url)
             break
             
     # 2. Voiceover
@@ -77,18 +80,41 @@ def run_pipeline():
         cpath.write_bytes(video_bytes)
         clip_paths.append(str(cpath))
         
-    # 4. B-roll clips
-    print("Generating B-roll clips via Modal...")
+    # 4. B-roll clips (Using RSS Image instead of AI Generation)
+    print("Generating B-roll clips from RSS image...")
     broll_paths = []
+    
+    rss_img_path = out_dir / "rss_source_image.jpg"
+    broll_video_path = out_dir / "broll_source.mp4"
+    
+    if getattr(topic, "source_image_url", ""):
+        print(f"Downloading RSS image: {topic.source_image_url}")
+        try:
+            req = urllib.request.Request(topic.source_image_url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=10) as response:
+                rss_img_path.write_bytes(response.read())
+        except Exception as e:
+            print(f"Failed to download RSS image: {e}")
+            
+    # Fallback to a black image if download failed or no URL
+    if not rss_img_path.exists():
+        print("Using fallback black image for B-roll.")
+        subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=1280x720", "-frames:v", "1", str(rss_img_path)], capture_output=True)
+        
+    # Convert image to a 5-second video with a slow zoom (Ken Burns effect)
+    print("Applying Ken Burns effect to image...")
+    subprocess.run([
+        "ffmpeg", "-y", "-loop", "1", "-i", str(rss_img_path),
+        "-vf", "scale=-2:10*ih,zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=720x1280",
+        "-c:v", "libx264", "-t", "5", "-pix_fmt", "yuv420p", "-r", "25",
+        str(broll_video_path)
+    ], capture_output=True, check=True)
+    
+    # Use this same generated video for all 5 B-roll segments
     segments = topic.visual_segments[:5]
-    generate_broll = modal.Function.from_name("avatar-pipeline", "generate_broll")
     for i, seg in enumerate(segments):
-        desc = seg.get("broll_query", "football match scene")
-        print(f"Generating broll {i}: {desc}...")
-        vbytes = generate_broll.remote(desc, 8)
-        bpath = out_dir / f"broll_{i:02d}.mp4"
-        bpath.write_bytes(vbytes)
-        broll_paths.append(str(bpath))
+        # We can just reuse the same file path for the assembler
+        broll_paths.append(str(broll_video_path))
         
     # 5. Assemble & Upload
     print("Assembling final video...")

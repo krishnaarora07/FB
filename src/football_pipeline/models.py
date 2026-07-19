@@ -89,6 +89,7 @@ class TopicPackage:
     debate_bait_comment: str = ""     # Binary question to pin as first comment after upload
     # Avatar pipeline field — never read by the daily pipeline
     source_article_url: str = ""      # URL of the RSS article this script is based on
+    source_image_url: str = ""        # URL of the RSS image this script is based on
 
     @classmethod
     def from_dict(cls, data: dict) -> "TopicPackage":
@@ -105,6 +106,7 @@ class TopicPackage:
             viral_story_type=str(data.get("viral_story_type") or ""),
             debate_bait_comment=str(data.get("debate_bait_comment") or ""),
             source_article_url=str(data.get("source_article_url") or ""),
+            source_image_url=str(data.get("source_image_url") or ""),
         )
 
 

@@ -113,7 +113,7 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
             
             # 1. Scale and pad the PiP source (creates pip_ready)
             # Placed top-right to avoid subtitles at the bottom
-            filter_chains.append(f"[{pip_in}]scale=240:426,pad=246:432:3:3:color=white@0.8[pip_ready_{i}]")
+            filter_chains.append(f"[{pip_in}]scale=360:640,pad=372:652:6:6:color=white@0.8[pip_ready_{i}]")
             
             # 2. Shift B-roll timestamps to its active window
             filter_chains.append(f"[{broll_in}]setpts=PTS-STARTPTS+{start_t}/TB[broll_shifted_{i}]")
