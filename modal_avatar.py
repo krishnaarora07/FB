@@ -65,6 +65,7 @@ longcat_image = (
         "pip install -U 'huggingface_hub[cli]' hf",
     )
     .pip_install("transformers", "accelerate", "diffusers", "sentencepiece", "einops", "loguru", "ftfy", "regex")
+    .run_commands("pip install flash-attn --no-build-isolation")
 )
 
 @app.function(image=longcat_image, gpu="a100-80gb", timeout=3600, volumes={"/models": volume}, retries=3)
