@@ -5,7 +5,7 @@ from pydub import AudioSegment
 
 from src.football_pipeline.clients.rss_client import RSSClient
 from src.football_pipeline.clients.gemini_client import GeminiTopicClient
-from src.football_pipeline.clients.chatterbox_tts_client import ChatterboxTtsClient
+from src.avatar_pipeline.fish_speech_client import FishSpeechClient
 from src.football_pipeline.youtube_upload import YouTubeUploader
 from src.football_pipeline.config import Settings
 from src.avatar_pipeline import assembler
@@ -33,7 +33,7 @@ def run_pipeline():
             
     # 2. Voiceover
     print("Generating voiceover...")
-    tts = ChatterboxTtsClient(settings)
+    tts = FishSpeechClient(settings)
     out_dir = Path(settings.output_dir)
     out_dir.mkdir(exist_ok=True, parents=True)
     base_audio_path = out_dir / "full_audio.wav"

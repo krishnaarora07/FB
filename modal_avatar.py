@@ -54,6 +54,75 @@ def generate_broll(prompt: str, duration_seconds: int) -> bytes:
         return f.read()
 
 
+# --- VOICEOVER (Fish Speech 1.5) ---
+fish_speech_image = (
+    modal.Image.debian_slim(python_version="3.10")
+    .apt_install("git", "ffmpeg", "curl", "wget", "build-essential")
+    .run_commands(
+        "pip install torch==2.5.1 torchaudio==2.5.1 torchvision==0.20.1 --extra-index-url https://download.pytorch.org/whl/cu121",
+        "git clone https://github.com/fishaudio/fish-speech.git /workspace/fish-speech",
+        "cd /workspace/fish-speech && pip install -e .",
+        "pip install -U 'huggingface_hub[cli]' hf requests pydantic"
+    )
+)
+
+@app.function(image=fish_speech_image, gpu="l4", timeout=3600, volumes={"/models": volume})
+def generate_voiceover(text: str) -> bytes:
+    import os
+    import subprocess
+    import time
+    import requests
+    
+    os.environ["HF_HOME"] = "/models/huggingface"
+    base_model_dir = "/models/fish-speech-1.5"
+    if not os.path.exists(os.path.join(base_model_dir, "config.json")):
+        print("Downloading Fish Speech 1.5 weights...")
+        subprocess.run(["huggingface-cli", "download", "fishaudio/fish-speech-1.5", "--local-dir", base_model_dir], check=True)
+        
+    os.chdir("/workspace/fish-speech")
+    
+    server_cmd = [
+        "python", "tools/api_server.py",
+        "--llama-checkpoint-path", base_model_dir,
+        "--decoder-checkpoint-path", f"{base_model_dir}/firefly-gan-vq-fsq-8x1024-21hz-generator.pth",
+        "--listen", "127.0.0.1:8080",
+        "--compile"
+    ]
+    
+    print("Starting Fish Speech API server...")
+    proc = subprocess.Popen(server_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    
+    ready = False
+    for i in range(120):
+        try:
+            r = requests.get("http://127.0.0.1:8080/v1/health", timeout=2)
+            if r.status_code == 200:
+                ready = True
+                break
+        except Exception:
+            pass
+        time.sleep(1)
+        
+    if not ready:
+        proc.kill()
+        raise RuntimeError("Fish Speech API server failed to start within 120s.")
+        
+    print("Generating TTS...")
+    req_data = {
+        "text": text,
+        "format": "wav"
+    }
+    resp = requests.post("http://127.0.0.1:8080/v1/tts", json=req_data)
+    
+    proc.kill()
+    proc.wait()
+    
+    if resp.status_code != 200:
+        raise RuntimeError(f"TTS API failed: {resp.text}")
+        
+    return resp.content
+
+
 # --- AVATAR (LongCat-Video-Avatar-1.5) ---
 longcat_image = (
     modal.Image.debian_slim(python_version="3.10")
@@ -189,11 +258,28 @@ def _download_longcat():
     print("LongCat weights cached.")
 
 
+@app.function(image=fish_speech_image, timeout=3600, volumes={"/models": volume})
+def _download_fish_speech():
+    """Pre-download Fish Speech 1.5 weights into the persistent volume."""
+    import os
+    import subprocess
+    os.environ["HF_HOME"] = "/models/huggingface"
+    base_model_dir = "/models/fish-speech-1.5"
+    if not os.path.exists(os.path.join(base_model_dir, "config.json")):
+        print("Downloading Fish Speech 1.5 weights...")
+        subprocess.run(
+            ["huggingface-cli", "download", "fishaudio/fish-speech-1.5", "--local-dir", base_model_dir],
+            check=True
+        )
+    volume.commit()
+    print("Fish Speech weights cached.")
+
 @app.local_entrypoint()
 def download_models():
     """Pre-download all model weights to the persistent volume. Run with: modal run modal_avatar.py"""
-    print("Pre-downloading LTX-Video and LongCat model weights...")
+    print("Pre-downloading model weights...")
     _download_ltx.remote()
     _download_longcat.remote()
+    _download_fish_speech.remote()
     print("All model weights downloaded and cached successfully.")
 
