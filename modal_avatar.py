@@ -9,8 +9,14 @@ volume = modal.Volume.from_name("avatar-models", create_if_missing=True)
 # --- B-ROLL (LTX-Video 2.3 Pro) ---
 ltx_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install("torch==2.3.0", "torchvision", "torchaudio")
-    .pip_install("diffusers", "transformers", "accelerate", "imageio", "imageio-ffmpeg", "sentencepiece")
+    .pip_install(
+        "torch==2.5.1", "torchvision==0.20.1", "torchaudio==2.5.1",
+        extra_index_url="https://download.pytorch.org/whl/cu121",
+    )
+    .run_commands(
+        "pip install 'git+https://github.com/huggingface/diffusers.git'"
+    )
+    .pip_install("transformers", "accelerate", "imageio", "imageio-ffmpeg", "sentencepiece")
 )
 
 @app.function(image=ltx_image, gpu="a100", timeout=3600, volumes={"/models": volume})
