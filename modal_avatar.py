@@ -20,7 +20,7 @@ ltx_image = (
     .pip_install("transformers", "accelerate", "imageio", "imageio-ffmpeg", "sentencepiece")
 )
 
-@app.function(image=ltx_image, gpu="a100", timeout=3600, volumes={"/models": volume})
+@app.function(image=ltx_image, gpu="a100-80gb", timeout=3600, volumes={"/models": volume})
 def generate_broll(prompt: str, duration_seconds: int) -> bytes:
     import torch
     from diffusers import LTXPipeline
@@ -67,7 +67,7 @@ longcat_image = (
     .pip_install("transformers", "accelerate", "diffusers", "sentencepiece", "einops", "loguru", "ftfy", "regex")
 )
 
-@app.function(image=longcat_image, gpu="a100", timeout=3600, volumes={"/models": volume}, retries=3)
+@app.function(image=longcat_image, gpu="a100-80gb", timeout=3600, volumes={"/models": volume}, retries=3)
 def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
     import json
     import math
@@ -145,7 +145,7 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
 
 # --- MODEL PRE-DOWNLOAD FUNCTIONS ---
 
-@app.function(image=ltx_image, gpu="a100", timeout=3600, volumes={"/models": volume})
+@app.function(image=ltx_image, gpu="a100-80gb", timeout=3600, volumes={"/models": volume})
 def _download_ltx():
     """Pre-download LTX-Video weights into the persistent volume."""
     import torch
