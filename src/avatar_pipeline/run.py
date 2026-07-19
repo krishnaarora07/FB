@@ -130,11 +130,13 @@ def run_pipeline():
     # Check if image exists and is valid (> 1KB to ensure it's not a 0-byte or error page)
     if rss_img_path.exists() and rss_img_path.stat().st_size > 1024:
         # Convert image to a 5-second video with a slow zoom (Ken Burns effect)
-        print("Applying Ken Burns effect to image...")
         try:
+            print("Applying Ken Burns effect to image...")
+            # We scale to 1440:2560 (2x 720p) preserving aspect ratio, crop exactly to 9:16, 
+            # and then apply zoompan. This prevents ANY stretching or distortion of horizontal images!
             subprocess.run([
                 "ffmpeg", "-y", "-loop", "1", "-i", str(rss_img_path),
-                "-vf", "scale=-2:10*ih,zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=720x1280",
+                "-vf", "scale=1440:2560:force_original_aspect_ratio=increase,crop=1440:2560,zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=720x1280",
                 "-c:v", "libx264", "-t", "5", "-pix_fmt", "yuv420p", "-r", "25",
                 str(broll_video_path)
             ], capture_output=True, check=True)
