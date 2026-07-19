@@ -28,11 +28,21 @@ def run_pipeline():
         return
         
     # Match article URL and Image URL
+    matched = False
     for n in news:
-        if n.title in topic.topic_title or topic.topic_title in n.title:
+        if getattr(topic, "source_headline", "") and topic.source_headline.strip().lower() == n.title.strip().lower():
             object.__setattr__(topic, "source_article_url", n.article_url)
             object.__setattr__(topic, "source_image_url", n.image_url)
+            matched = True
             break
+            
+    if not matched:
+        # Fallback fuzzy match
+        for n in news:
+            if n.title in topic.topic_title or topic.topic_title in n.title:
+                object.__setattr__(topic, "source_article_url", n.article_url)
+                object.__setattr__(topic, "source_image_url", n.image_url)
+                break
             
     # 2. Voiceover
     print("Generating voiceover...")
