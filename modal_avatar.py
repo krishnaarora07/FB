@@ -24,7 +24,8 @@ ltx_image = (
 def generate_broll(prompt: str, duration_seconds: int) -> bytes:
     import torch
     from diffusers import LTXPipeline
-    from diffusers.utils import export_to_video
+    import imageio
+    import numpy as np
     
     os.environ["HF_HOME"] = "/models/huggingface"
     
@@ -45,7 +46,10 @@ def generate_broll(prompt: str, duration_seconds: int) -> bytes:
     ).frames[0]
     
     out_path = "/tmp/out.mp4"
-    export_to_video(video, out_path, fps=24)
+    # Convert PIL Images to numpy arrays and write with imageio (libx264, yuv420p)
+    frames = [np.array(img) for img in video]
+    imageio.mimwrite(out_path, frames, fps=24, codec="libx264", pixelformat="yuv420p", quality=8)
+    
     with open(out_path, "rb") as f:
         return f.read()
 
