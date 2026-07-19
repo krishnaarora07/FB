@@ -100,11 +100,13 @@ def run_pipeline():
     generate_avatar = modal.Function.from_name("avatar-pipeline", "generate_avatar")
     clip_paths = []
     
-    for i, ap in enumerate(audio_paths):
-        print(f"Generating avatar for audio chunk {i}...")
-        audio_bytes = Path(ap).read_bytes()
-        photo_bytes = photo_path.read_bytes()
-        video_bytes = generate_avatar.remote(audio_bytes, photo_bytes)
+    # Read bytes for all chunks
+    audio_bytes_list = [Path(ap).read_bytes() for ap in audio_paths]
+    photo_bytes_list = [photo_path.read_bytes()] * len(audio_paths)
+    
+    print("Generating avatar clips in PARALLEL via Modal...")
+    # Using .map() spins up multiple GPUs concurrently, turning a 30 min task into 5 mins
+    for i, video_bytes in enumerate(generate_avatar.map(audio_bytes_list, photo_bytes_list)):
         cpath = out_dir / f"clip_{i:02d}.mp4"
         cpath.write_bytes(video_bytes)
         clip_paths.append(str(cpath))
