@@ -64,7 +64,7 @@ longcat_image = (
         "cd /workspace/LongCat-Video && pip install -r requirements_avatar.txt",
         "pip install -U 'huggingface_hub[cli]' hf",
     )
-    .pip_install("transformers", "accelerate", "diffusers", "sentencepiece", "einops", "loguru", "ftfy", "regex")
+    .pip_install("transformers", "accelerate", "diffusers", "sentencepiece", "einops", "loguru", "ftfy", "regex", "imageio", "imageio-ffmpeg")
     .pip_install("https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3.post1+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl")
 )
 
