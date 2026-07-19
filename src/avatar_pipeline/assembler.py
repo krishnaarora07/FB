@@ -99,14 +99,34 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
     filter_chains = []
     last_v = "0:v"
     
-    if norm_brolls:
-        spacing = total_dur / (len(norm_brolls) + 1)
-        for i in range(len(norm_brolls)):
+    N = len(norm_brolls)
+    if N > 0:
+        spacing = total_dur / (N + 1)
+        for i in range(N):
             start_t = spacing * (i + 1)
             end_t = start_t + 5.0
+            
+            # The PiP source for this B-roll is input i+1
+            pip_in = f"{i+1}:v"
+            # The B-roll source is input N+i+1
+            broll_in = f"{N+i+1}:v"
+            
+            # 1. Scale and pad the PiP source (creates pip_ready)
+            # Placed top-right to avoid subtitles at the bottom
+            filter_chains.append(f"[{pip_in}]scale=240:426,pad=246:432:3:3:color=white@0.8[pip_ready_{i}]")
+            
+            # 2. Shift B-roll timestamps to its active window
+            filter_chains.append(f"[{broll_in}]setpts=PTS-STARTPTS+{start_t}/TB[broll_shifted_{i}]")
+            
+            # 3. Overlay the PiP onto the B-roll (shortest=1 ensures the overlay stops when the 5s B-roll stops)
+            filter_chains.append(f"[broll_shifted_{i}][pip_ready_{i}]overlay=x=W-w-30:y=30:shortest=1[broll_pip_{i}]")
+            
+            # 4. Add alpha crossfade to the combined PiP+Broll
+            filter_chains.append(f"[broll_pip_{i}]format=rgba,fade=t=in:st={start_t}:d=0.5:alpha=1,fade=t=out:st={end_t-0.5}:d=0.5:alpha=1[broll_faded_{i}]")
+            
+            # 5. Overlay onto the main background
             out_v = f"v{i}"
-            filter_chains.append(f"[{i+1}:v]setpts=PTS-STARTPTS+{start_t}/TB[b{i}]")
-            filter_chains.append(f"[{last_v}][b{i}]overlay=enable='between(t,{start_t},{end_t})'[{out_v}]")
+            filter_chains.append(f"[{last_v}][broll_faded_{i}]overlay=enable='between(t,{start_t},{end_t})':format=auto[{out_v}]")
             last_v = out_v
 
     # Check for words.json for subtitles
@@ -130,6 +150,11 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
     # Final FFmpeg command
     print("Compositing final video...")
     cmd = ["ffmpeg", "-y", "-i", temp_avatar]
+    
+    # Add temp_avatar N times for the PiP layers
+    for _ in norm_brolls:
+        cmd.extend(["-i", temp_avatar])
+        
     for bp in norm_brolls:
         cmd.extend(["-i", bp])
         
@@ -142,7 +167,7 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
         cmd.extend(["-map", "0:v"])
         
     if base_audio_path:
-        cmd.extend(["-map", f"{len(norm_brolls)+1}:a", "-c:a", "aac", "-ar", "44100", "-ac", "2", "-shortest"])
+        cmd.extend(["-map", f"{2 * N + 1}:a", "-c:a", "aac", "-ar", "44100", "-ac", "2", "-shortest"])
         
     cmd.extend(["-c:v", "libx264", "-preset", "fast", "-crf", "23", output_path])
     
