@@ -133,13 +133,16 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
     for bp in norm_brolls:
         cmd.extend(["-i", bp])
         
+    if base_audio_path:
+        cmd.extend(["-i", base_audio_path])
+        
     if filter_chains:
         cmd.extend(["-filter_complex", ";".join(filter_chains), "-map", f"[{last_v}]"])
     else:
         cmd.extend(["-map", "0:v"])
         
     if base_audio_path:
-        cmd.extend(["-i", base_audio_path, "-map", f"{len(norm_brolls)+1}:a", "-c:a", "aac", "-ar", "44100", "-ac", "2", "-shortest"])
+        cmd.extend(["-map", f"{len(norm_brolls)+1}:a", "-c:a", "aac", "-ar", "44100", "-ac", "2", "-shortest"])
         
     cmd.extend(["-c:v", "libx264", "-preset", "fast", "-crf", "23", output_path])
     
