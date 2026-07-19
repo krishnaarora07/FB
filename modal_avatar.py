@@ -126,3 +126,44 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
     out_video = os.path.join(out_dir, files[0])
     with open(out_video, "rb") as f:
         return f.read()
+
+
+# --- MODEL PRE-DOWNLOAD FUNCTIONS ---
+
+@app.function(image=ltx_image, gpu="a100", timeout=3600, volumes={"/models": volume})
+def _download_ltx():
+    """Pre-download LTX-Video weights into the persistent volume."""
+    import torch
+    from diffusers import LTXPipeline
+    os.environ["HF_HOME"] = "/models/huggingface"
+    print("Downloading LTX-Video weights...")
+    LTXPipeline.from_pretrained("Lightricks/LTX-Video", torch_dtype=torch.bfloat16)
+    volume.commit()
+    print("LTX-Video weights cached.")
+
+
+@app.function(image=longcat_image, timeout=3600, volumes={"/models": volume})
+def _download_longcat():
+    """Pre-download LongCat-Video-Avatar-1.5 weights into the persistent volume."""
+    os.environ["HF_HOME"] = "/models/huggingface"
+    model_dir = "/models/LongCat-Video-Avatar-1.5"
+    if not os.path.exists(os.path.join(model_dir, "config.json")):
+        print("Downloading LongCat model weights...")
+        subprocess.run(
+            ["huggingface-cli", "download", "meituan-longcat/LongCat-Video-Avatar-1.5", "--local-dir", model_dir],
+            check=True
+        )
+        volume.commit()
+        print("LongCat weights cached.")
+    else:
+        print("LongCat weights already cached, skipping.")
+
+
+@app.local_entrypoint()
+def download_models():
+    """Pre-download all model weights to the persistent volume. Run with: modal run modal_avatar.py"""
+    print("Pre-downloading LTX-Video and LongCat model weights...")
+    _download_ltx.remote()
+    _download_longcat.remote()
+    print("All model weights downloaded and cached successfully.")
+
