@@ -70,6 +70,10 @@ Not only does Gemini now adapt its scriptwriting based on audience retention, bu
 ### Phase 9: Global Prime-Time Scheduling & Breaking News Fast-Track
 To maximize global reach without cannibalizing views, we built an advanced algorithmic scheduler. The pipeline queries YouTube Analytics to calculate the specific best-performing days of the week for the channel. It then automatically targets peak time blocks across three major regions (India at 15:00 UTC, UK at 18:00 UTC, and US at 20:00 UTC). Furthermore, if Gemini detects a massive "breaking news" story (e.g. a huge injury or transfer), it triggers a fast-track override, skipping the queue and publishing the video instantly.
 
+### Phase 10: The AI Avatar Generation Engine (Modal Serverless GPUs)
+To create ultra-premium weekend specials, we integrated **LongCat-Video-Avatar-1.5** (audio-driven portrait animation) and **LTX-Video 2.3 Pro** (cinematic B-roll generation). Because these state-of-the-art Diffusion and DiT models require massive 80GB A100 GPUs, we built a serverless orchestrator using **Modal**. 
+A secondary GitHub Actions workflow triggers every 5 days, sending audio chunks and prompts to the cloud. Modal spins up the heavy GPUs instantly, generates the photorealistic avatar and B-roll clips, caches the massive 10GB+ model weights to a permanent volume, and returns the finished MP4s to GitHub Actions for final FFmpeg assembly and YouTube upload.
+
 ---
 
 ## 🚀 Setup & Deployment Guide
@@ -87,5 +91,7 @@ However, you must provide the following API keys as **Repository Secrets** in Gi
 | `PEXELS_API_KEY` | (Required) Used as an unbreakable fail-safe if Google Search fails. |
 | `YOUTUBE_CLIENT_SECRETS_JSON` | (Required) The OAuth client secret for the YouTube channel you are uploading to. |
 | `YOUTUBE_TOKEN_JSON` | (Required) The OAuth authorization token so the bot can upload videos automatically. |
+| `MODAL_TOKEN_ID` | (Required for Avatar Pipeline) The Token ID for your Modal.com account to run serverless A100 GPUs. |
+| `MODAL_TOKEN_SECRET` | (Required for Avatar Pipeline) The Token Secret for your Modal.com account. |
 
 Once these secrets are saved, simply navigate to the **Actions** tab in your repository and trigger the workflow, or wait for the automated CRON schedule to post your next viral hit!
