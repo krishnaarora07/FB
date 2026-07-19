@@ -6,53 +6,6 @@ app = modal.App("avatar-pipeline")
 
 volume = modal.Volume.from_name("avatar-models", create_if_missing=True)
 
-# --- B-ROLL (LTX-Video 2.3 Pro) ---
-ltx_image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .apt_install("git")
-    .pip_install(
-        "torch==2.5.1", "torchvision==0.20.1", "torchaudio==2.5.1",
-        extra_index_url="https://download.pytorch.org/whl/cu121",
-    )
-    .run_commands(
-        "pip install 'git+https://github.com/huggingface/diffusers.git'"
-    )
-    .pip_install("transformers", "accelerate", "imageio", "imageio-ffmpeg", "sentencepiece")
-)
-
-@app.function(image=ltx_image, gpu="a100-80gb", timeout=3600, volumes={"/models": volume})
-def generate_broll(prompt: str, duration_seconds: int) -> bytes:
-    import torch
-    from diffusers import LTXPipeline
-    import imageio
-    import numpy as np
-    
-    os.environ["HF_HOME"] = "/models/huggingface"
-    
-    pipe = LTXPipeline.from_pretrained("Lightricks/LTX-Video", torch_dtype=torch.bfloat16)
-    pipe.to("cuda")
-    
-    # Enforce standard prompt to avoid NFL
-    enhanced_prompt = f"European soccer, photorealistic, 4k, cinematic, detailed. {prompt}. no american football, no NFL."
-    
-    num_frames = 121  # Approx 5 seconds at 24fps
-    
-    video = pipe(
-        prompt=enhanced_prompt,
-        width=704,
-        height=480,
-        num_frames=num_frames,
-        num_inference_steps=50,
-    ).frames[0]
-    
-    out_path = "/tmp/out.mp4"
-    # Convert PIL Images to numpy arrays and write with imageio (libx264, yuv420p)
-    frames = [np.array(img) for img in video]
-    imageio.mimwrite(out_path, frames, fps=24, codec="libx264", pixelformat="yuv420p", quality=8)
-    
-    with open(out_path, "rb") as f:
-        return f.read()
-
 
 # --- VOICEOVER (Fish Speech 1.5) ---
 fish_speech_image = (
@@ -219,17 +172,6 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
 
 # --- MODEL PRE-DOWNLOAD FUNCTIONS ---
 
-@app.function(image=ltx_image, gpu="a100-80gb", timeout=3600, volumes={"/models": volume})
-def _download_ltx():
-    """Pre-download LTX-Video weights into the persistent volume."""
-    import torch
-    from diffusers import LTXPipeline
-    os.environ["HF_HOME"] = "/models/huggingface"
-    print("Downloading LTX-Video weights...")
-    LTXPipeline.from_pretrained("Lightricks/LTX-Video", torch_dtype=torch.bfloat16)
-    volume.commit()
-    print("LTX-Video weights cached.")
-
 
 @app.function(image=longcat_image, timeout=3600, volumes={"/models": volume})
 def _download_longcat():
@@ -278,7 +220,6 @@ def _download_fish_speech():
 def download_models():
     """Pre-download all model weights to the persistent volume. Run with: modal run modal_avatar.py"""
     print("Pre-downloading model weights...")
-    _download_ltx.remote()
     _download_longcat.remote()
     _download_fish_speech.remote()
     print("All model weights downloaded and cached successfully.")
