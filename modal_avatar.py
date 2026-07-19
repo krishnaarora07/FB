@@ -82,17 +82,18 @@ longcat_image = (
     modal.Image.debian_slim(python_version="3.10")
     .apt_install("git", "ffmpeg", "wget", "libsndfile1")
     .run_commands(
-        "python -m pip install torch==2.5.1 torchaudio==2.5.1 torchvision==0.20.1 --extra-index-url https://download.pytorch.org/whl/cu121"
+        "pip install uv",
+        "uv pip install --system torch==2.5.1 torchaudio==2.5.1 torchvision==0.20.1 --extra-index-url https://download.pytorch.org/whl/cu121"
     )
     .run_commands(
         "git clone https://github.com/meituan-longcat/LongCat-Video.git /workspace/LongCat-Video",
         "sed -i '/libsndfile1/d' /workspace/LongCat-Video/requirements_avatar.txt",
         "sed -i '/tritonserverclient/d' /workspace/LongCat-Video/requirements_avatar.txt",
-        "cd /workspace/LongCat-Video && pip install -r requirements_avatar.txt",
-        "pip install -U 'huggingface_hub[cli]' hf",
+        "cd /workspace/LongCat-Video && uv pip install --system -r requirements_avatar.txt",
+        "uv pip install --system -U 'huggingface_hub[cli]' hf",
+        "uv pip install --system transformers accelerate diffusers sentencepiece einops loguru ftfy regex imageio imageio-ffmpeg",
+        "uv pip install --system https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3.post1+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl"
     )
-    .pip_install("transformers", "accelerate", "diffusers", "sentencepiece", "einops", "loguru", "ftfy", "regex", "imageio", "imageio-ffmpeg")
-    .pip_install("https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3.post1+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl")
 )
 
 @app.function(image=longcat_image, gpu="a100-80gb", timeout=3600, volumes={"/models": volume}, retries=3)
