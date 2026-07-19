@@ -60,7 +60,7 @@ longcat_image = (
         "sed -i '/libsndfile1/d' /workspace/LongCat-Video/requirements_avatar.txt",
         "sed -i '/tritonserverclient/d' /workspace/LongCat-Video/requirements_avatar.txt",
         "cd /workspace/LongCat-Video && pip install -r requirements_avatar.txt",
-        "pip install huggingface_hub[cli]",
+        "pip install -U 'huggingface_hub[cli]' hf",
     )
 )
 
@@ -81,7 +81,7 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
     model_dir = "/models/LongCat-Video-Avatar-1.5"
     if not os.path.exists(os.path.join(model_dir, "config.json")):
         print("Downloading LongCat model...")
-        subprocess.run(["huggingface-cli", "download", "meituan-longcat/LongCat-Video-Avatar-1.5", "--local-dir", model_dir], check=True)
+        subprocess.run(["hf", "download", "meituan-longcat/LongCat-Video-Avatar-1.5", "--local-dir", model_dir], check=True)
         
     input_json_path = "/tmp/input.json"
     input_data = {
@@ -157,7 +157,7 @@ def _download_longcat():
     if not os.path.exists(os.path.join(model_dir, "config.json")):
         print("Downloading LongCat model weights...")
         subprocess.run(
-            ["huggingface-cli", "download", "meituan-longcat/LongCat-Video-Avatar-1.5", "--local-dir", model_dir],
+            ["hf", "download", "meituan-longcat/LongCat-Video-Avatar-1.5", "--local-dir", model_dir],
             check=True
         )
         volume.commit()
