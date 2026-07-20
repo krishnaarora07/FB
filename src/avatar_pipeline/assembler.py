@@ -44,7 +44,7 @@ def _build_ass(words: list[dict], ass_path: Path) -> None:
     content = ass_header + "\n".join(events) + "\n"
     ass_path.write_text(content, encoding="utf-8")
 
-def normalize_video(src: str, dst: str, crop_to_fill: bool = False):
+def normalize_video(src: str, dst: str, crop_to_fill: bool = False, keep_audio: bool = False):
     w, h = 720, 1280
     
     if crop_to_fill:
@@ -56,9 +56,14 @@ def normalize_video(src: str, dst: str, crop_to_fill: bool = False):
         "ffmpeg", "-y", "-i", src,
         "-vf", vf,
         "-r", "25",
-        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-        "-an", dst
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23"
     ]
+    
+    if keep_audio:
+        cmd.extend(["-c:a", "aac", "-ar", "44100", "-ac", "2", dst])
+    else:
+        cmd.extend(["-an", dst])
+        
     subprocess.run(cmd, capture_output=True, check=True)
 
 def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, base_audio_path: str = None):
@@ -66,11 +71,11 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
     if not clip_paths:
         raise ValueError("No clip paths provided.")
         
-    print("Normalizing avatar clips...")
+    print("Normalizing avatar clips and preserving native audio...")
     norm_avatars = []
     for i, p in enumerate(clip_paths):
         dst = os.path.join(work_dir, f"norm_avatar_{i}.mp4")
-        normalize_video(p, dst, crop_to_fill=False)
+        normalize_video(p, dst, crop_to_fill=False, keep_audio=True)
         norm_avatars.append(dst)
         
     print("Normalizing B-roll clips...")
@@ -166,8 +171,8 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
     else:
         cmd.extend(["-map", "0:v"])
         
-    if base_audio_path:
-        cmd.extend(["-map", f"{2 * N + 1}:a", "-c:a", "aac", "-ar", "44100", "-ac", "2", "-shortest"])
+    # Map the perfectly synced audio from temp_avatar instead of the base_audio_path
+    cmd.extend(["-map", "0:a", "-c:a", "aac", "-ar", "44100", "-ac", "2", "-shortest"])
         
     cmd.extend(["-c:v", "libx264", "-preset", "fast", "-crf", "23", output_path])
     
