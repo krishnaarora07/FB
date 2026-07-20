@@ -73,7 +73,7 @@ def run_pipeline():
     
     # 2a. Call Modal TTS
     try:
-        tts.create_voiceover(topic.script, str(voice_path))
+        tts.create_voiceover(topic.script, voice_path)
     except Exception as e:
         print(f"TTS failed: {e}. Falling back to 30s silent audio.")
         # Create silent fallback
