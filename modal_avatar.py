@@ -40,15 +40,14 @@ def generate_voiceover(text: str) -> bytes:
         "python", "tools/api_server.py",
         "--llama-checkpoint-path", base_model_dir,
         "--decoder-checkpoint-path", f"{base_model_dir}/firefly-gan-vq-fsq-8x1024-21hz-generator.pth",
-        "--listen", "127.0.0.1:8080",
-        "--compile"
+        "--listen", "127.0.0.1:8080"
     ]
     
     print("Starting Fish Speech API server...")
     proc = subprocess.Popen(server_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     
     ready = False
-    for i in range(120):
+    for i in range(300):
         try:
             r = requests.get("http://127.0.0.1:8080/v1/health", timeout=2)
             if r.status_code == 200:
@@ -56,11 +55,17 @@ def generate_voiceover(text: str) -> bytes:
                 break
         except Exception:
             pass
+            
+        if proc.poll() is not None:
+            out, _ = proc.communicate()
+            raise RuntimeError(f"Fish Speech API server crashed during boot:\n{out.decode('utf-8', errors='ignore')}")
+            
         time.sleep(1)
         
     if not ready:
         proc.kill()
-        raise RuntimeError("Fish Speech API server failed to start within 120s.")
+        out, _ = proc.communicate()
+        raise RuntimeError(f"Fish Speech API server failed to start within 300s. Log:\n{out.decode('utf-8', errors='ignore')}")
         
     print("Generating TTS...")
     req_data = {
