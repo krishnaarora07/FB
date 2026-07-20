@@ -425,8 +425,10 @@ sentence so a viewer watching on repeat feels the video never ends."""
         is_long_form = target_length >= 180
         if is_long_form:
             hashtag_instructions = '["#FIFAWorldCup2026", "#Football", "#Documentary", "... plus 10-15 highly optimized 100% fresh hashtags specific ONLY to this exact story"]'
+            visuals_instructions = "Ensure your visual queries naturally follow the narrative progression of your documentary script."
         else:
             hashtag_instructions = '["#FIFAWorldCup2026", "#Football", "#Shorts", "... plus 10-15 highly optimized 100% fresh hashtags specific ONLY to this exact story"]'
+            visuals_instructions = "Map each beat visually:\n    HOOK   → dramatic action clip\n    TWIST  → reaction clip\n    PROOF  → generic authority visual\n    STAKES → wide/epic visual\n    LOOP   → echo the Hook clip or a wide stadium shot"
 
         # Approximate words = target_length * 2.1 (avg speaking rate of 2.1 words/sec)
         word_limit = int(target_length * 2.1)
@@ -576,7 +578,7 @@ Our visual engine downloads images and videos to match the script.
 - Use basic nouns and simple actions only.
 - GOOD examples: "Messi sad", "Guardiola", "football fans", "referee", "red card", "stadium".
 - BAD examples: "Ronaldo celebrating a goal with his teammates after a controversial penalty".
-{ "Ensure your visual queries naturally follow the narrative progression of your documentary script." if is_long_form else "Map each beat visually:\n    HOOK   → dramatic action clip\n    TWIST  → reaction clip\n    PROOF  → generic authority visual\n    STAKES → wide/epic visual\n    LOOP   → echo the Hook clip or a wide stadium shot" }
+{visuals_instructions}
 
 ═══════════════════════════════════════════
 STEP 4 — OUTPUT FORMAT (STRICT JSON)
