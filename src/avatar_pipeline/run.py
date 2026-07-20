@@ -73,7 +73,11 @@ def run_pipeline():
     
     # 2a. Call Modal TTS
     try:
-        tts.create_voiceover(topic.script, voice_path)
+        ref_audio_path = Path("assets/reference_audio.wav")
+        ref_audio_bytes = ref_audio_path.read_bytes() if ref_audio_path.exists() else None
+        ref_text = "Welcome to the daily football update. Let us get right into the news on the pitch." if ref_audio_bytes else None
+        
+        tts.create_voiceover(topic.script, voice_path, ref_audio_bytes, ref_text)
     except Exception as e:
         print(f"TTS failed: {e}.")
         raise RuntimeError(f"Voiceover generation failed: {e}")

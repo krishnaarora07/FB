@@ -10,7 +10,7 @@ class FishSpeechClient:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    def create_voiceover(self, text: str, output_path: Path) -> Path:
+    def create_voiceover(self, text: str, output_path: Path, ref_audio_bytes: bytes = None, ref_text: str = None) -> Path:
         """Generate voiceover WAV via Modal and an empty .words.json to trigger fallback subtitle timing."""
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -26,7 +26,7 @@ class FishSpeechClient:
         wav_output_path = output_path.with_suffix('.wav')
         
         generate_voiceover = modal.Function.from_name("avatar-pipeline", "generate_voiceover")
-        wav_bytes = generate_voiceover.remote(text)
+        wav_bytes = generate_voiceover.remote(text, ref_audio_bytes, ref_text)
         
         with open(wav_output_path, "wb") as f:
             f.write(wav_bytes)

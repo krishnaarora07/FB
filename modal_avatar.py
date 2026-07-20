@@ -22,9 +22,10 @@ fish_speech_image = (
 )
 
 @app.function(image=fish_speech_image, gpu="l4", timeout=3600, volumes={"/models": volume})
-def generate_voiceover(text: str) -> bytes:
+def generate_voiceover(text: str, ref_audio_bytes: bytes = None, ref_text: str = None) -> bytes:
     import os
     import subprocess
+    import base64
     import time
     import requests
     
@@ -97,6 +98,15 @@ def generate_voiceover(text: str) -> bytes:
             "temperature": 0.6,         # Low temp reduces hallucinations
             "repetition_penalty": 1.2   # Prevent repeating words
         }
+        
+        if ref_audio_bytes and ref_text:
+            req_data["references"] = [
+                {
+                    "audio": base64.b64encode(ref_audio_bytes).decode('utf-8'),
+                    "text": ref_text
+                }
+            ]
+            
         resp = requests.post("http://127.0.0.1:8080/v1/tts", json=req_data, timeout=600)
         
         if resp.status_code == 200:
