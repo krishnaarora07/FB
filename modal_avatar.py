@@ -30,8 +30,9 @@ def generate_voiceover(text: str) -> bytes:
     os.environ["HF_HOME"] = "/models/huggingface"
     base_model_dir = "/models/fish-speech-1.5"
     if not os.path.exists(os.path.join(base_model_dir, "config.json")):
+        from huggingface_hub import snapshot_download
         print("Downloading Fish Speech 1.5 weights...")
-        subprocess.run(["huggingface-cli", "download", "fishaudio/fish-speech-1.5", "--local-dir", base_model_dir], check=True)
+        snapshot_download(repo_id="fishaudio/fish-speech-1.5", local_dir=base_model_dir)
         
     os.chdir("/workspace/fish-speech")
     
@@ -111,14 +112,16 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
     with open(photo_path, "wb") as f: f.write(photo_bytes)
         
     base_model_dir = "/models/LongCat-Video"
-    if not os.path.exists(os.path.join(base_model_dir, "config.json")):
+    if not os.path.exists(os.path.join(base_model_dir, "model_index.json")):
+        from huggingface_hub import snapshot_download
         print("Downloading LongCat Base model...")
-        subprocess.run(["hf", "download", "meituan-longcat/LongCat-Video", "--local-dir", base_model_dir], check=True)
+        snapshot_download(repo_id="meituan-longcat/LongCat-Video", local_dir=base_model_dir)
 
     model_dir = "/models/LongCat-Video-Avatar-1.5"
     if not os.path.exists(os.path.join(model_dir, "config.json")):
+        from huggingface_hub import snapshot_download
         print("Downloading LongCat Avatar model...")
-        subprocess.run(["hf", "download", "meituan-longcat/LongCat-Video-Avatar-1.5", "--local-dir", model_dir], check=True)
+        snapshot_download(repo_id="meituan-longcat/LongCat-Video-Avatar-1.5", local_dir=model_dir)
         
     input_json_path = "/tmp/input.json"
     input_data = {
