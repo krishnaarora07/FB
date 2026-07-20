@@ -21,6 +21,21 @@ class FishSpeechClient:
                 "Dependencies missing. Ensure whisper-timestamped is installed."
             ) from exc
 
+        if ref_audio_bytes:
+            print("  Auto-transcribing reference audio to ensure perfect voice cloning sync...")
+            import tempfile
+            import os
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+                tf.write(ref_audio_bytes)
+                tf_path = tf.name
+            
+            whisper_model = whisper.load_model("base", device="cpu")
+            ref_audio_data = whisper.load_audio(tf_path)
+            ref_result = whisper.transcribe(whisper_model, ref_audio_data, language="en")
+            ref_text = ref_result["text"].strip()
+            print(f"  Reference text set to: '{ref_text}'")
+            os.remove(tf_path)
+
         print("  Calling Fish Speech 1.5 on Modal... (This might take a moment to boot)")
         
         wav_output_path = output_path.with_suffix('.wav')
