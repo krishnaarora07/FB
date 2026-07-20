@@ -75,10 +75,8 @@ def run_pipeline():
     try:
         tts.create_voiceover(topic.script, voice_path)
     except Exception as e:
-        print(f"TTS failed: {e}. Falling back to 30s silent audio.")
-        # Create silent fallback
-        silent = AudioSegment.silent(duration=30000)
-        silent.export(voice_path, format="wav")
+        print(f"TTS failed: {e}.")
+        raise RuntimeError(f"Voiceover generation failed: {e}")
         
     # 2b. Split Voiceover intelligently to preserve lip sync
     # LongCat lip sync drifts if audio chunks exceed ~15s. We split on silences and pack up to 12s.

@@ -92,7 +92,7 @@ def generate_voiceover(text: str) -> bytes:
             "temperature": 0.6,         # Low temp reduces hallucinations
             "repetition_penalty": 1.2   # Prevent repeating words
         }
-        resp = requests.post("http://127.0.0.1:8080/v1/tts", json=req_data, timeout=120)
+        resp = requests.post("http://127.0.0.1:8080/v1/tts", json=req_data, timeout=600)
         
         if resp.status_code == 200:
             segment = AudioSegment.from_wav(io.BytesIO(resp.content))
