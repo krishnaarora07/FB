@@ -405,9 +405,66 @@ sentence so a viewer watching on repeat feels the video never ends."""
 
         # Approximate words = target_length * 2.1 (avg speaking rate of 2.1 words/sec)
         word_limit = int(target_length * 2.1)
+        
+        is_long_form = target_length >= 180
+        producer_role = "long-form YouTube documentary producer" if is_long_form else "YouTube Shorts producer"
+        
+        if is_long_form:
+            num_beats = max(10, int(target_length / 10))
+            formula_instructions = f'''
+You MUST structure the script using a continuous narrative flow divided into EXACTLY {num_beats} sequential beats.
+Generate EXACTLY {num_beats} objects in the "visual_segments" JSON array.
+Each beat should contain 1 to 2 sentences advancing the story.
+'''
+            json_example = f'''
+  "visual_segments": [
+    {{"beat": "INTRO", "text": "...", "broll_queries": ["...", "..."]}},
+    {{"beat": "BUILDUP", "text": "...", "broll_queries": ["...", "..."]}},
+    ... (continue for {num_beats} beats) ...
+    {{"beat": "CONCLUSION", "text": "...", "broll_queries": ["...", "..."]}}
+  ],'''
+        else:
+            formula_instructions = '''
+You MUST structure the script using this exact 5-beat formula:
+
+  BEAT 1 — HOOK (1–2 sentences)
+    • The very first sentence must create INSTANT intrigue or shock.
+    • 3–8 words max for the opening line. No preamble, no context.
+    • Start mid-action. "Messi refused." not "In today's video, we look at Messi's contract."
+    • Only use facts present in the news item.
+
+  BEAT 2 — TWIST (1–2 sentences)
+    • Immediately subvert or deepen the expectation set by the hook.
+    • Add the detail that makes the hook make sense — but keep it sharp.
+    • Still only facts from the source.
+
+  BEAT 3 — PROOF (1 sentence)
+    • One concrete, specific fact — a number, a name, a quote, a source — that makes it real.
+    • This is the credibility beat. ONLY use details verbatim from the news item.
+    • Format: "According to [source], ..." or just state the fact directly if VERIFIED.
+
+  BEAT 4 — STAKES (1–2 sentences)
+    • Why does this matter? Who wins, who loses, what changes?
+    • Keep it grounded — extrapolate only what the source implies, not what you invent.
+
+  BEAT 5 — INVISIBLE LOOP (1 sentence)
+    ⚠️ THIS IS MACHINE-CHECKED. Missing or generic loops = automatic rejection.
+    • The loop sentence must feel like a NATURAL CONTINUATION of the story, NOT a labelled ending.
+    • It must echo the exact subject (player name / club / event) from BEAT 1.
+    • The viewer should feel the video is still going, not that it just ended.
+    • BAD: "What a story. Drop your thoughts below."  ← generic, no echo, rejected.
+    • BAD: "And that's why football is amazing."       ← no subject echo, rejected.
+    • GOOD (if Beat 1 = "Messi refused €300 million"):
+        "And that €300 million refusal? It's the reason Messi's next move will define his legacy."
+    • GOOD (if Beat 1 = "The referee missed a clear penalty"):
+        "Which is exactly why that referee's name is still trending worldwide."
+    • The loop sentence must share at least one 4+ letter keyword with Beat 1. Non-negotiable.
+'''
+            json_example = '''
+{json_example}'''
 
         return f"""
-You are an expert YouTube Shorts producer and editor specializing in highly-engaging, factual football (soccer) content.
+You are an expert {producer_role} and editor specializing in highly-engaging, factual football (soccer) content.
 
 Today is {date.today().isoformat()}.
 {history_str}
@@ -481,40 +538,7 @@ STEP 2 — SCRIPT: VIRAL FORMULA + INVISIBLE LOOP
 ═══════════════════════════════════════════
 MAXIMUM LENGTH: Under {word_limit} words ({target_length}s target). Hard limit — do NOT exceed.
 
-You MUST structure the script using this exact 5-beat formula:
-
-  BEAT 1 — HOOK (1–2 sentences)
-    • The very first sentence must create INSTANT intrigue or shock.
-    • 3–8 words max for the opening line. No preamble, no context.
-    • Start mid-action. "Messi refused." not "In today's video, we look at Messi's contract."
-    • Only use facts present in the news item.
-
-  BEAT 2 — TWIST (1–2 sentences)
-    • Immediately subvert or deepen the expectation set by the hook.
-    • Add the detail that makes the hook make sense — but keep it sharp.
-    • Still only facts from the source.
-
-  BEAT 3 — PROOF (1 sentence)
-    • One concrete, specific fact — a number, a name, a quote, a source — that makes it real.
-    • This is the credibility beat. ONLY use details verbatim from the news item.
-    • Format: "According to [source], ..." or just state the fact directly if VERIFIED.
-
-  BEAT 4 — STAKES (1–2 sentences)
-    • Why does this matter? Who wins, who loses, what changes?
-    • Keep it grounded — extrapolate only what the source implies, not what you invent.
-
-  BEAT 5 — INVISIBLE LOOP (1 sentence)
-    ⚠️ THIS IS MACHINE-CHECKED. Missing or generic loops = automatic rejection.
-    • The loop sentence must feel like a NATURAL CONTINUATION of the story, NOT a labelled ending.
-    • It must echo the exact subject (player name / club / event) from BEAT 1.
-    • The viewer should feel the video is still going, not that it just ended.
-    • BAD: "What a story. Drop your thoughts below."  ← generic, no echo, rejected.
-    • BAD: "And that's why football is amazing."       ← no subject echo, rejected.
-    • GOOD (if Beat 1 = "Messi refused €300 million"):
-        "And that €300 million refusal? It's the reason Messi's next move will define his legacy."
-    • GOOD (if Beat 1 = "The referee missed a clear penalty"):
-        "Which is exactly why that referee's name is still trending worldwide."
-    • The loop sentence must share at least one 4+ letter keyword with Beat 1. Non-negotiable.
+{formula_instructions}
 
 {hook_instructions}
 - No filler words, "in this video", "like and subscribe", or meta-commentary. Facts only.
@@ -544,13 +568,7 @@ Return ONLY this exact JSON. NO extra text before or after. NO markdown fences:
   "viral_story_type": "SHOCK | OUTRAGE | DISBELIEF | PRIDE | URGENCY | HUMOUR",
   "topic_title": "short descriptive topic name (max 8 words)",
   "angle": "one sentence: why this story is viral right now",
-  "visual_segments": [
-    {{"beat": "HOOK",   "text": "First sentence...",  "broll_queries": ["keyword1", "keyword2"]}},
-    {{"beat": "TWIST",  "text": "Second sentence...", "broll_queries": ["keyword1", "keyword2"]}},
-    {{"beat": "PROOF",  "text": "Third sentence...",  "broll_queries": ["keyword1", "keyword2"]}},
-    {{"beat": "STAKES", "text": "Fourth sentence...", "broll_queries": ["keyword1", "keyword2"]}},
-    {{"beat": "LOOP",   "text": "Final sentence — echoes Beat 1 subject.", "broll_queries": ["keyword1", "keyword2"]}}
-  ],
+{json_example}
   "youtube_title": "Viral title under 95 chars with relevant emoji — must match viral_story_type tone",
   "youtube_description": "2-3 punchy sentences with SEO keywords. MUST end with a binary debate question e.g. 'Right call or massive mistake? Comment below.'",
   "hashtags": {hashtag_instructions},
