@@ -118,16 +118,13 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
     with open(photo_path, "wb") as f: f.write(photo_bytes)
         
     base_model_dir = "/models/LongCat-Video"
-    if not os.path.exists(os.path.join(base_model_dir, "model_index.json")):
-        from huggingface_hub import snapshot_download
-        print("Downloading LongCat Base model...")
-        snapshot_download(repo_id="meituan-longcat/LongCat-Video", local_dir=base_model_dir)
+    from huggingface_hub import snapshot_download
+    print("Ensuring LongCat Base model is downloaded...")
+    snapshot_download(repo_id="meituan-longcat/LongCat-Video", local_dir=base_model_dir)
 
     model_dir = "/models/LongCat-Video-Avatar-1.5"
-    if not os.path.exists(os.path.join(model_dir, "config.json")):
-        from huggingface_hub import snapshot_download
-        print("Downloading LongCat Avatar model...")
-        snapshot_download(repo_id="meituan-longcat/LongCat-Video-Avatar-1.5", local_dir=model_dir)
+    print("Ensuring LongCat Avatar model is downloaded...")
+    snapshot_download(repo_id="meituan-longcat/LongCat-Video-Avatar-1.5", local_dir=model_dir)
         
     input_json_path = "/tmp/input.json"
     input_data = {
@@ -193,15 +190,13 @@ def _download_longcat():
     
     # Base model (Tokenizer, VAE, etc.)
     base_model_dir = "/models/LongCat-Video"
-    if not os.path.exists(os.path.join(base_model_dir, "model_index.json")):
-        print("Downloading LongCat Base model weights...")
-        snapshot_download(repo_id="meituan-longcat/LongCat-Video", local_dir=base_model_dir)
+    print("Downloading LongCat Base model weights...")
+    snapshot_download(repo_id="meituan-longcat/LongCat-Video", local_dir=base_model_dir)
         
     # Avatar model (DiT weights)
     model_dir = "/models/LongCat-Video-Avatar-1.5"
-    if not os.path.exists(os.path.join(model_dir, "config.json")):
-        print("Downloading LongCat Avatar model weights...")
-        snapshot_download(repo_id="meituan-longcat/LongCat-Video-Avatar-1.5", local_dir=model_dir)
+    print("Downloading LongCat Avatar model weights...")
+    snapshot_download(repo_id="meituan-longcat/LongCat-Video-Avatar-1.5", local_dir=model_dir)
         
     volume.commit()
     print("LongCat weights cached.")

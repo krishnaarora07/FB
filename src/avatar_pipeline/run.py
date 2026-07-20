@@ -95,7 +95,7 @@ def run_pipeline():
     photo_path = Path("assets/avatar_photo.jpg")
     if not photo_path.exists():
         # Make a dummy black image if missing
-        subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=1280x720", "-frames:v", "1", str(photo_path)], capture_output=True)
+        subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=720x1280", "-frames:v", "1", str(photo_path)], capture_output=True)
         
     generate_avatar = modal.Function.from_name("avatar-pipeline", "generate_avatar")
     clip_paths = []
