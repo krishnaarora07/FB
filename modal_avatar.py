@@ -45,7 +45,8 @@ def generate_voiceover(text: str) -> bytes:
     ]
     
     print("Starting Fish Speech API server...")
-    proc = subprocess.Popen(server_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    log_file = open("/tmp/fish_server.log", "w")
+    proc = subprocess.Popen(server_cmd, stdout=log_file, stderr=subprocess.STDOUT)
     
     ready = False
     for i in range(300):
@@ -58,15 +59,19 @@ def generate_voiceover(text: str) -> bytes:
             pass
             
         if proc.poll() is not None:
-            out, _ = proc.communicate()
-            raise RuntimeError(f"Fish Speech API server crashed during boot:\n{out.decode('utf-8', errors='ignore')}")
+            log_file.close()
+            with open("/tmp/fish_server.log", "r") as f:
+                out = f.read()
+            raise RuntimeError(f"Fish Speech API server crashed during boot:\n{out}")
             
         time.sleep(1)
         
     if not ready:
         proc.kill()
-        out, _ = proc.communicate()
-        raise RuntimeError(f"Fish Speech API server failed to start within 300s. Log:\n{out.decode('utf-8', errors='ignore')}")
+        log_file.close()
+        with open("/tmp/fish_server.log", "r") as f:
+            out = f.read()
+        raise RuntimeError(f"Fish Speech API server failed to start within 300s. Log:\n{out}")
         
     print("Generating TTS with optimized parameters and sentence chunking...")
     import re
