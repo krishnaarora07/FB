@@ -212,7 +212,12 @@ class GeminiTopicClient:
             if not topic_text:
                 raise RuntimeError("Gemini returned an empty response — check your API key and model.")
 
-            data = _parse_jsonish(topic_text)
+            try:
+                data = _parse_jsonish(topic_text)
+            except json.JSONDecodeError as e:
+                print(f"  Failed to parse JSON response from {used_model}: {e}. Retrying...", flush=True)
+                continue
+
             if "visual_segments" in data:
                 data["script"] = " ".join([seg.get("text", "") for seg in data["visual_segments"]])
                 bq = []
