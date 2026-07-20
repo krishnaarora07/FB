@@ -249,12 +249,38 @@ class GeminiTopicClient:
             topic = TopicPackage.from_dict(data)
 
             # --- Deterministic Infinite-Loop Connector Check ---
-            # Loop check removed for traditional long-form video.
-            loop_ok = True
-            loop_feedback = ""
+            is_long_form_check = self.settings.script_seconds >= 180
+            if is_long_form_check:
+                loop_ok = True
+                loop_feedback = ""
+                print("  ✅ Loop check bypassed for long-form documentary format.", flush=True)
+            else:
+                # Validate that the script's last sentence echoes a word/phrase from the first.
+                import re as _re
+                sentences = [seg.get("text", "").strip() for seg in (data.get("visual_segments") or []) if seg.get("text", "").strip()]
+                loop_ok = False
+                loop_feedback = ""
+                if len(sentences) >= 2:
+                    first_words = set(_re.findall(r'\b[a-zA-Z]{4,}\b', sentences[0].lower()))
+                    last_words  = set(_re.findall(r'\b[a-zA-Z]{4,}\b', sentences[-1].lower()))
+                    loop_ok = bool(first_words & last_words)  # at least one 4+ letter word shared
+                else:
+                    loop_ok = False  # REJECT IF TOO SHORT TO FORM A LOOP
+    
+                if not loop_ok:
+                    print("  ⚠️ LOOP CHECK FAILED: last sentence shares no key words with first sentence.", flush=True)
+                    loop_feedback = (
+                        "\n\nLOOP REJECTION: Your script has NO INFINITE LOOP. "
+                        "The LAST sentence MUST echo a keyword from the FIRST sentence so the video "
+                        "seamlessly repeats. Example connectors: 'And that's exactly why ...', "
+                        "'Which brings us back to ...', 'So when you see ... again, now you know why.'"
+                    )
+                else:
+                    print("  ✅ Infinite loop connector verified.", flush=True)
 
             # --- Virality Predictor Quality Gate ---
-            score_prompt = f"""You are a strict YouTube Documentary critic. Rate this script out of 10.
+            if is_long_form_check:
+                score_prompt = f"""You are a strict YouTube Documentary critic. Rate this script out of 10.
 Script: "{topic.script}"
 Title: "{topic.youtube_title}"
 
@@ -267,6 +293,24 @@ Score criteria (ALL must pass for 9-10):
 - 9-10: Captivating pacing, verified facts, and strong storytelling.
 - 7-8: Solid, publishable, factual.
 - Below 7: REJECT — too boring, weak pacing, or unstructured narrative."""
+            else:
+                score_prompt = f"""You are a strict YouTube Shorts critic. Rate this script out of 10.
+Script: "{topic.script}"
+Title: "{topic.youtube_title}"
+
+Respond in JSON only: {{"score": 7, "reason": "short explanation", "loop_present": true}}
+
+Score criteria (ALL must pass for 9-10):
+- Automatically 0 if FAKE NEWS, fabricated drama, or hallucinated details are detected. 
+  CRITICAL RULE: "Fake News" ONLY means information that contradicts or adds to the provided LIVE NEWS FEED. 
+  DO NOT fact-check the script against your internal historical knowledge (e.g., stating "this match hasn't happened recently"), because your training data is outdated. If it matches the news feed, it is FACT.
+- Automatically 0 if the final sentence does NOT connect back to the opening (missing infinite loop).
+- 9-10: Explosive hook, punchy pacing, verified facts, AND a clear infinite loop connector.
+- 7-8: Solid, publishable, factual, has a loop connector.
+- Below 7: REJECT — too boring, slow hook, weak pacing, or missing infinite loop.
+
+Infinite loop means: the last sentence must grammatically and thematically lead back into the first 
+sentence so a viewer watching on repeat feels the video never ends."""
 
             score = 10  # default pass if scoring fails
             reason = ""
@@ -378,12 +422,15 @@ Score criteria (ALL must pass for 9-10):
         elif hook_pressure == "red_alert":
             hook_instructions = "🚨 RED ALERT EMERGENCY: Viewers are swiping away in 3 seconds. Write the most aggressive, controversial opening sentence possible. Make it a question nobody can resist answering."
 
-        hashtag_instructions = '["#FIFAWorldCup2026", "#Football", "#Documentary", "... plus 10-15 highly optimized 100% fresh hashtags specific ONLY to this exact story"]'
+        is_long_form = target_length >= 180
+        if is_long_form:
+            hashtag_instructions = '["#FIFAWorldCup2026", "#Football", "#Documentary", "... plus 10-15 highly optimized 100% fresh hashtags specific ONLY to this exact story"]'
+        else:
+            hashtag_instructions = '["#FIFAWorldCup2026", "#Football", "#Shorts", "... plus 10-15 highly optimized 100% fresh hashtags specific ONLY to this exact story"]'
 
         # Approximate words = target_length * 2.1 (avg speaking rate of 2.1 words/sec)
         word_limit = int(target_length * 2.1)
         
-        is_long_form = target_length >= 180
         producer_role = "long-form YouTube documentary producer" if is_long_form else "YouTube Shorts producer"
         
         if is_long_form:
@@ -529,7 +576,7 @@ Our visual engine downloads images and videos to match the script.
 - Use basic nouns and simple actions only.
 - GOOD examples: "Messi sad", "Guardiola", "football fans", "referee", "red card", "stadium".
 - BAD examples: "Ronaldo celebrating a goal with his teammates after a controversial penalty".
-- Ensure your visual queries naturally follow the narrative progression of your documentary script.
+{ "Ensure your visual queries naturally follow the narrative progression of your documentary script." if is_long_form else "Map each beat visually:\n    HOOK   → dramatic action clip\n    TWIST  → reaction clip\n    PROOF  → generic authority visual\n    STAKES → wide/epic visual\n    LOOP   → echo the Hook clip or a wide stadium shot" }
 
 ═══════════════════════════════════════════
 STEP 4 — OUTPUT FORMAT (STRICT JSON)
