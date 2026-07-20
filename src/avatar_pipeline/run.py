@@ -80,15 +80,44 @@ def run_pipeline():
         silent = AudioSegment.silent(duration=30000)
         silent.export(voice_path, format="wav")
         
-    # 2b. Split Voiceover into 6 chunks
+    # 2b. Split Voiceover intelligently to preserve lip sync
+    # LongCat lip sync drifts if audio chunks exceed ~15s. We split on silences and pack up to 12s.
     audio = AudioSegment.from_wav(voice_path)
-    chunk_len = len(audio) // 6
+    from pydub.silence import split_on_silence
+    
+    print("Splitting audio on silences to preserve lip sync...")
+    chunks = split_on_silence(
+        audio,
+        min_silence_len=400,
+        silence_thresh=audio.dBFS - 14,
+        keep_silence=200
+    )
+    
+    max_chunk_len = 12 * 1000 # 12 seconds
+    if not chunks:
+        # Fallback if silence splitting fails
+        chunks = [audio[i:i+max_chunk_len] for i in range(0, len(audio), max_chunk_len)]
+        
     audio_paths = []
-    for i in range(6):
-        c = audio[i * chunk_len : (i + 1) * chunk_len]
-        cpath = out_dir / f"audio_{i:02d}.wav"
-        c.export(cpath, format="wav")
+    current_chunk = AudioSegment.empty()
+    chunk_idx = 0
+    
+    for chunk in chunks:
+        if len(current_chunk) + len(chunk) > max_chunk_len and len(current_chunk) > 0:
+            cpath = out_dir / f"audio_{chunk_idx:02d}.wav"
+            current_chunk.export(cpath, format="wav")
+            audio_paths.append(str(cpath))
+            chunk_idx += 1
+            current_chunk = chunk
+        else:
+            current_chunk += chunk
+            
+    if len(current_chunk) > 0:
+        cpath = out_dir / f"audio_{chunk_idx:02d}.wav"
+        current_chunk.export(cpath, format="wav")
         audio_paths.append(str(cpath))
+        
+    print(f"Split voiceover into {len(audio_paths)} optimal chunks.")
         
     # 3. Avatar clips
     print("Generating avatar clips via Modal...")
