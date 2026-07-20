@@ -124,7 +124,7 @@ def run_pipeline():
     photo_path = Path("assets/avatar_photo.jpg")
     if not photo_path.exists():
         # Make a dummy black image if missing
-        subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=720x1280", "-frames:v", "1", str(photo_path)], capture_output=True)
+        subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=1024x1024", "-frames:v", "1", str(photo_path)], capture_output=True)
         
     generate_avatar = modal.Function.from_name("avatar-pipeline", "generate_avatar")
     clip_paths = []
@@ -161,7 +161,7 @@ def run_pipeline():
             print("Applying Ken Burns effect to main image...")
             subprocess.run([
                 "ffmpeg", "-y", "-loop", "1", "-i", str(rss_img_path),
-                "-vf", "scale=1440:2560:force_original_aspect_ratio=increase,crop=1440:2560,zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=720x1280",
+                "-vf", "scale=2560:1440:force_original_aspect_ratio=increase,crop=2560:1440,zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=1280x720",
                 "-c:v", "libx264", "-t", "5", "-pix_fmt", "yuv420p", "-r", "25",
                 str(broll_video_path)
             ], capture_output=True, check=True)
@@ -220,7 +220,7 @@ def run_pipeline():
                 if img_path.exists() and img_path.stat().st_size > 1024:
                     subprocess.run([
                         "ffmpeg", "-y", "-loop", "1", "-i", str(img_path),
-                        "-vf", "scale=1440:2560:force_original_aspect_ratio=increase,crop=1440:2560,zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=720x1280",
+                        "-vf", "scale=2560:1440:force_original_aspect_ratio=increase,crop=2560:1440,zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=1280x720",
                         "-c:v", "libx264", "-t", "5", "-pix_fmt", "yuv420p", "-r", "25",
                         str(vid_path)
                     ], capture_output=True, check=True)

@@ -9,8 +9,8 @@ def _build_ass(words: list[dict], ass_path: Path) -> None:
     ass_header = (
         "[Script Info]\n"
         "ScriptType: v4.00+\n"
-        "PlayResX: 720\n"
-        "PlayResY: 1280\n"
+        "PlayResX: 1280\n"
+        "PlayResY: 720\n"
         "ScaledBorderAndShadow: yes\n"
         "\n"
         "[V4+ Styles]\n"
@@ -45,7 +45,7 @@ def _build_ass(words: list[dict], ass_path: Path) -> None:
     ass_path.write_text(content, encoding="utf-8")
 
 def normalize_video(src: str, dst: str, crop_to_fill: bool = False, keep_audio: bool = False):
-    w, h = 720, 1280
+    w, h = 1280, 720
     
     if crop_to_fill:
         vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}"
@@ -117,14 +117,15 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
             broll_in = f"{N+i+1}:v"
             
             # 1. Scale and pad the PiP source (creates pip_ready)
-            # Placed top-right to avoid subtitles at the bottom
-            filter_chains.append(f"[{pip_in}]scale=360:640,pad=372:652:6:6:color=white@0.8[pip_ready_{i}]")
+            # Crop the black bars from the padded horizontal video to make it square, scale to 320x320, and pad with a border.
+            filter_chains.append(f"[{pip_in}]crop=ih:ih,scale=320:320,pad=332:332:6:6:color=white@0.8[pip_ready_{i}]")
             
             # 2. Shift B-roll timestamps to its active window
             filter_chains.append(f"[{broll_in}]setpts=PTS-STARTPTS+{start_t}/TB[broll_shifted_{i}]")
             
             # 3. Overlay the PiP onto the B-roll (shortest=1 ensures the overlay stops when the 5s B-roll stops)
-            filter_chains.append(f"[broll_shifted_{i}][pip_ready_{i}]overlay=x=W-w-30:y=30:shortest=1[broll_pip_{i}]")
+            # Placed bottom-right for horizontal video layout
+            filter_chains.append(f"[broll_shifted_{i}][pip_ready_{i}]overlay=x=W-w-40:y=H-h-40:shortest=1[broll_pip_{i}]")
             
             # 4. Add alpha crossfade to the combined PiP+Broll
             filter_chains.append(f"[broll_pip_{i}]format=rgba,fade=t=in:st={start_t}:d=0.5:alpha=1,fade=t=out:st={end_t-0.5}:d=0.5:alpha=1[broll_faded_{i}]")
