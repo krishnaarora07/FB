@@ -487,7 +487,13 @@ You MUST structure the script using this exact 5-beat formula:
     • The loop sentence must share at least one 4+ letter keyword with Beat 1. Non-negotiable.
 '''
             json_example = '''
-{json_example}'''
+  "visual_segments": [
+    {"beat": "HOOK", "text": "...", "broll_queries": ["...", "..."]},
+    {"beat": "TWIST", "text": "...", "broll_queries": ["...", "..."]},
+    {"beat": "PROOF", "text": "...", "broll_queries": ["...", "..."]},
+    {"beat": "STAKES", "text": "...", "broll_queries": ["...", "..."]},
+    {"beat": "LOOP", "text": "...", "broll_queries": ["...", "..."]}
+  ],'''
 
         return f"""
 You are an expert {producer_role} and editor specializing in highly-engaging, factual football (soccer) content.
