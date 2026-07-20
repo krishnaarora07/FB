@@ -140,8 +140,8 @@ def run_pipeline():
         cpath.write_bytes(video_bytes)
         clip_paths.append(str(cpath))
         
-    # 4. B-roll clips (Using RSS Image instead of AI Generation)
-    print("Generating B-roll clips from RSS image...")
+    # 4. B-roll clips (Using Giphy + RSS Image)
+    print("Generating B-roll clips from Giphy and RSS image...")
     broll_paths = []
     
     rss_img_path = out_dir / "rss_source_image.jpg"
@@ -156,30 +156,60 @@ def run_pipeline():
         except Exception as e:
             print(f"Failed to download RSS image: {e}")
             
-    # Check if image exists and is valid (> 1KB to ensure it's not a 0-byte or error page)
+    # First B-roll is the RSS image Ken Burns effect
     if rss_img_path.exists() and rss_img_path.stat().st_size > 1024:
-        # Convert image to a 5-second video with a slow zoom (Ken Burns effect)
         try:
             print("Applying Ken Burns effect to image...")
-            # We scale to 1440:2560 (2x 720p) preserving aspect ratio, crop exactly to 9:16, 
-            # and then apply zoompan. This prevents ANY stretching or distortion of horizontal images!
             subprocess.run([
                 "ffmpeg", "-y", "-loop", "1", "-i", str(rss_img_path),
                 "-vf", "scale=1440:2560:force_original_aspect_ratio=increase,crop=1440:2560,zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=720x1280",
                 "-c:v", "libx264", "-t", "5", "-pix_fmt", "yuv420p", "-r", "25",
                 str(broll_video_path)
             ], capture_output=True, check=True)
-            
-            # Use this same generated video for all 5 B-roll segments
-            segments = topic.visual_segments[:5]
-            for i, seg in enumerate(segments):
-                broll_paths.append(str(broll_video_path))
+            broll_paths.append(str(broll_video_path))
         except subprocess.CalledProcessError as e:
             print(f"Failed to create B-roll video: {e}")
-            broll_paths = []
-    else:
-        print("Missing or invalid RSS image. Falling back to full-screen avatar.")
-        broll_paths = []
+
+    # For remaining B-rolls, use Giphy
+    from src.football_pipeline.clients.giphy_client import GiphyClient
+    import requests
+    giphy_client = GiphyClient(settings)
+    
+    segments = topic.visual_segments or []
+    
+    for i, seg in enumerate(segments):
+        # Skip the first one if we already have the RSS image
+        if i == 0 and len(broll_paths) > 0:
+            continue
+            
+        queries = seg.get("broll_queries", [])
+        if not queries:
+            query = seg.get("broll_query", "")
+            if query: queries = [query]
+            
+        found = False
+        for q_idx, query in enumerate(queries):
+            res = giphy_client.search_gifs(query, limit=1)
+            if res:
+                asset = res[0]
+                output = out_dir / f"broll_giphy_{i}.mp4"
+                print(f"Downloading Giphy B-roll for segment {i}: {query}")
+                try:
+                    headers = {"User-Agent": "Mozilla/5.0"}
+                    resp = requests.get(asset.url, stream=True, timeout=15, headers=headers)
+                    resp.raise_for_status()
+                    with open(output, "wb") as f:
+                        for chunk in resp.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                    broll_paths.append(str(output))
+                    found = True
+                    break
+                except Exception as e:
+                    print(f"Failed to download Giphy MP4: {e}")
+        
+        # If we failed to find a Giphy for this segment, repeat the last available B-roll
+        if not found and broll_paths:
+            broll_paths.append(broll_paths[-1])
         
     # 5. Assemble & Upload
     print("Assembling final video...")
