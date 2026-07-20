@@ -173,7 +173,7 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
         cmd.extend(["-map", "0:v"])
         
     # Map the perfectly synced audio from temp_avatar instead of the base_audio_path
-    cmd.extend(["-map", "0:a", "-c:a", "aac", "-ar", "44100", "-ac", "2", "-shortest"])
+    cmd.extend(["-map", "0:a", "-c:a", "aac", "-ar", "44100", "-ac", "2"])
         
     cmd.extend(["-c:v", "libx264", "-preset", "fast", "-crf", "23", output_path])
     
