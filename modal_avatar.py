@@ -16,7 +16,7 @@ fish_speech_image = (
         "uv pip install --system torch==2.5.1 torchaudio==2.5.1 torchvision==0.20.1 --extra-index-url https://download.pytorch.org/whl/cu121",
         "git clone -b v1.5.1 https://github.com/fishaudio/fish-speech.git /workspace/fish-speech",
         "cd /workspace/fish-speech && uv pip install --system -e . --extra-index-url https://download.pytorch.org/whl/cu121",
-        "uv pip install --system -U 'huggingface_hub[cli]' hf requests pydantic",
+        "uv pip install --system -U 'huggingface_hub[cli]' hf requests pydantic pydub",
         "uv pip install --system -U protobuf tensorboard"
     )
 )
@@ -68,20 +68,47 @@ def generate_voiceover(text: str) -> bytes:
         out, _ = proc.communicate()
         raise RuntimeError(f"Fish Speech API server failed to start within 300s. Log:\n{out.decode('utf-8', errors='ignore')}")
         
-    print("Generating TTS...")
-    req_data = {
-        "text": text,
-        "format": "wav"
-    }
-    resp = requests.post("http://127.0.0.1:8080/v1/tts", json=req_data)
+    print("Generating TTS with optimized parameters and sentence chunking...")
+    import re
+    import io
+    from pydub import AudioSegment
     
+    # Split text into sentences to prevent hallucination/skipping on long texts
+    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', text) if s.strip()]
+    if not sentences:
+        sentences = [text]
+        
+    combined_audio = AudioSegment.empty()
+    silence = AudioSegment.silent(duration=200) # 200ms pause between sentences
+    
+    for idx, sentence in enumerate(sentences):
+        print(f"  Generating sentence {idx+1}/{len(sentences)}: {sentence[:30]}...")
+        req_data = {
+            "text": sentence,
+            "format": "wav",
+            "normalize": True,          # Best audio volume leveling
+            "latency": "normal",
+            "top_p": 0.8,               # Optimal for stability
+            "temperature": 0.6,         # Low temp reduces hallucinations
+            "repetition_penalty": 1.2   # Prevent repeating words
+        }
+        resp = requests.post("http://127.0.0.1:8080/v1/tts", json=req_data, timeout=120)
+        
+        if resp.status_code == 200:
+            segment = AudioSegment.from_wav(io.BytesIO(resp.content))
+            combined_audio += segment + silence
+        else:
+            print(f"  Warning: Failed to generate sentence {idx+1}: {resp.text}")
+            
     proc.kill()
     proc.wait()
     
-    if resp.status_code != 200:
-        raise RuntimeError(f"TTS API failed: {resp.text}")
+    if len(combined_audio) == 0:
+        raise RuntimeError("TTS API failed completely for all sentences.")
         
-    return resp.content
+    out_buf = io.BytesIO()
+    combined_audio.export(out_buf, format="wav")
+    return out_buf.getvalue()
 
 
 # --- AVATAR (LongCat-Video-Avatar-1.5) ---
