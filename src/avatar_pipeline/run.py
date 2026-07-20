@@ -140,26 +140,26 @@ def run_pipeline():
         cpath.write_bytes(video_bytes)
         clip_paths.append(str(cpath))
         
-    # 4. B-roll clips (Using Giphy + RSS Image)
-    print("Generating B-roll clips from Giphy and RSS image...")
+    # 4. B-roll clips (Using RSS News Images)
+    print("Generating B-roll clips from RSS news images...")
     broll_paths = []
     
     rss_img_path = out_dir / "rss_source_image.jpg"
     broll_video_path = out_dir / "broll_source.mp4"
     
     if getattr(topic, "source_image_url", ""):
-        print(f"Downloading RSS image: {topic.source_image_url}")
+        print(f"Downloading main RSS image: {topic.source_image_url}")
         try:
             req = urllib.request.Request(topic.source_image_url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=10) as response:
                 rss_img_path.write_bytes(response.read())
         except Exception as e:
-            print(f"Failed to download RSS image: {e}")
+            print(f"Failed to download main RSS image: {e}")
             
-    # First B-roll is the RSS image Ken Burns effect
+    # First B-roll is the main RSS image Ken Burns effect
     if rss_img_path.exists() and rss_img_path.stat().st_size > 1024:
         try:
-            print("Applying Ken Burns effect to image...")
+            print("Applying Ken Burns effect to main image...")
             subprocess.run([
                 "ffmpeg", "-y", "-loop", "1", "-i", str(rss_img_path),
                 "-vf", "scale=1440:2560:force_original_aspect_ratio=increase,crop=1440:2560,zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=720x1280",
@@ -168,17 +168,17 @@ def run_pipeline():
             ], capture_output=True, check=True)
             broll_paths.append(str(broll_video_path))
         except subprocess.CalledProcessError as e:
-            print(f"Failed to create B-roll video: {e}")
+            print(f"Failed to create main B-roll video: {e}")
 
-    # For remaining B-rolls, use Giphy
-    from src.football_pipeline.clients.giphy_client import GiphyClient
-    import requests
-    giphy_client = GiphyClient(settings)
-    
+    # For remaining B-rolls, find relevant images from other news items!
+    import random
     segments = topic.visual_segments or []
-    
+    used_image_urls = set()
+    if getattr(topic, "source_image_url", ""):
+        used_image_urls.add(topic.source_image_url)
+        
     for i, seg in enumerate(segments):
-        # Skip the first one if we already have the RSS image
+        # Skip the first one if we already have the main RSS image
         if i == 0 and len(broll_paths) > 0:
             continue
             
@@ -187,28 +187,51 @@ def run_pipeline():
             query = seg.get("broll_query", "")
             if query: queries = [query]
             
-        found = False
-        for q_idx, query in enumerate(queries):
-            res = giphy_client.search_gifs(query, limit=1)
-            if res:
-                asset = res[0]
-                output = out_dir / f"broll_giphy_{i}.mp4"
-                print(f"Downloading Giphy B-roll for segment {i}: {query}")
-                try:
-                    headers = {"User-Agent": "Mozilla/5.0"}
-                    resp = requests.get(asset.url, stream=True, timeout=15, headers=headers)
-                    resp.raise_for_status()
-                    with open(output, "wb") as f:
-                        for chunk in resp.iter_content(chunk_size=8192):
-                            f.write(chunk)
-                    broll_paths.append(str(output))
-                    found = True
-                    break
-                except Exception as e:
-                    print(f"Failed to download Giphy MP4: {e}")
-        
-        # If we failed to find a Giphy for this segment, repeat the last available B-roll
-        if not found and broll_paths:
+        found_url = None
+        # 1. Try to find a news item matching the broll query
+        for query in queries:
+            query_lower = query.lower()
+            matching_news = [n for n in news if n.image_url and n.image_url not in used_image_urls and query_lower in n.title.lower()]
+            if matching_news:
+                found_url = matching_news[0].image_url
+                break
+                
+        # 2. Fallback to any unused news image
+        if not found_url:
+            unused = [n for n in news if n.image_url and n.image_url not in used_image_urls]
+            if unused:
+                found_url = random.choice(unused).image_url
+                
+        # 3. Fallback to any valid news image
+        if not found_url:
+            valid_news = [n for n in news if n.image_url]
+            if valid_news:
+                found_url = random.choice(valid_news).image_url
+                
+        if found_url:
+            used_image_urls.add(found_url)
+            img_path = out_dir / f"rss_img_{i}.jpg"
+            vid_path = out_dir / f"broll_rss_{i}.mp4"
+            print(f"Downloading news image for segment {i}: {found_url}")
+            try:
+                req = urllib.request.Request(found_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    img_path.write_bytes(response.read())
+                    
+                if img_path.exists() and img_path.stat().st_size > 1024:
+                    subprocess.run([
+                        "ffmpeg", "-y", "-loop", "1", "-i", str(img_path),
+                        "-vf", "scale=1440:2560:force_original_aspect_ratio=increase,crop=1440:2560,zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=720x1280",
+                        "-c:v", "libx264", "-t", "5", "-pix_fmt", "yuv420p", "-r", "25",
+                        str(vid_path)
+                    ], capture_output=True, check=True)
+                    broll_paths.append(str(vid_path))
+                    continue # Success!
+            except Exception as e:
+                print(f"Failed to process news image for segment {i}: {e}")
+                
+        # If we failed to find or process an image for this segment, repeat the last available B-roll
+        if broll_paths:
             broll_paths.append(broll_paths[-1])
         
     # 5. Assemble & Upload
