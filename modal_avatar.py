@@ -210,13 +210,13 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
     else:
         num_segments = math.ceil((duration - 3.72) / 3.2) + 1 + 1  # +1 for safety
 
-    # Hard-cap as safety valve so we never OOM. At ~28 segments we're safely
-    # within A100 80GB with INT8 + KV-cache offload (~90s max).
-    MAX_SEGMENTS = 28
+    # Hard-cap as safety valve so we never OOM. At 30 segments we're safely
+    # within A100 80GB with INT8 + KV-cache offload (~93s capacity).
+    MAX_SEGMENTS = 30
     if num_segments > MAX_SEGMENTS:
         print(f"WARNING: Audio is {duration:.1f}s ({num_segments} segments needed). "
               f"Capping at {MAX_SEGMENTS} segments ({3.72 + (MAX_SEGMENTS-1)*3.2:.1f}s). "
-              f"The script is too long — shorten it to under ~85s.")
+              f"The script is too long — shorten it to under ~90s.")
         num_segments = MAX_SEGMENTS
 
     # Clean output dir so stale segments from a previous warm-container run

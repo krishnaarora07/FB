@@ -141,18 +141,21 @@ def run_pipeline():
         
     # 4. B-roll clips (Using RSS News Images)
     # ─────────────────────────────────────────────────────────────────────
-    # Strategy
-    #   BROLL_EVERY   – group this many visual segments under ONE B-roll
-    #                   image so each image stays on screen 8-12 s instead
-    #                   of flashing every 3-4 s.
-    #   MIN_BROLL_DUR – never show a B-roll for less than this many seconds.
-    #   Word-overlap scoring replaces the broken substring match so a query
-    #   like "Rodri Ballon d'Or" finds "Man City's Rodri wins Ballon d'Or".
+    # Fixed-interval strategy (eliminates the "flashing" bug):
+    #   BROLL_DUR      – every image is visible for EXACTLY this many seconds
+    #   BROLL_INTERVAL – a new image starts every N seconds
+    #
+    # The previous group-based approach produced overlapping timing windows
+    # (group N's start_t < group N-1's end_t), so FFmpeg layered the new
+    # image on top of the old one after only 1-2 s.  Fixed intervals mean
+    # no overlap is ever possible.
+    #
+    # Word-overlap scoring is kept so images actually relate to the topic.
     # ─────────────────────────────────────────────────────────────────────
     print("Generating B-roll clips from RSS news images...")
 
-    BROLL_EVERY   = 3      # 1 new image per N visual segments
-    MIN_BROLL_DUR = 8.0    # seconds each image stays on screen
+    BROLL_DUR      = 5.0   # seconds each image is visible (user wants 4-5 s)
+    BROLL_INTERVAL = 9.0   # seconds between the START of successive images
 
     def _word_overlap(query: str, title: str) -> float:
         """Fraction of query words that appear in the news title (0–1)."""
@@ -160,18 +163,8 @@ def run_pipeline():
         t = set(re.findall(r'\w+', title.lower()))
         return len(q & t) / len(q) if q else 0.0
 
-    def _group_timing(start_idx: int, n_segs: int) -> tuple:
-        """(start_s, duration_s) spanning n_segs segments from start_idx."""
-        if not seg_timings or start_idx >= len(seg_timings):
-            fallback = start_idx * (total_s / max(len(_segments_list), 1))
-            return (fallback, MIN_BROLL_DUR)
-        g_start = seg_timings[start_idx][0]
-        end_idx = min(start_idx + n_segs - 1, len(seg_timings) - 1)
-        g_end   = seg_timings[end_idx][0] + seg_timings[end_idx][1]
-        return (g_start, max(MIN_BROLL_DUR, g_end - g_start))
-
     def _make_kenburns(src: Path, dst: Path, dur_s: float) -> bool:
-        d = max(int(round(dur_s)), int(MIN_BROLL_DUR))
+        d = max(int(round(dur_s)), 4)
         try:
             subprocess.run([
                 "ffmpeg", "-y", "-loop", "1", "-i", str(src),
@@ -209,7 +202,6 @@ def run_pipeline():
                 score = _word_overlap(query, n.title)
                 if score > best_score:
                     best_score, best_url = score, n.image_url
-        # Accept if at least 25 % of query words matched a title
         if best_score >= 0.25 and best_url:
             return best_url
         # Fallback: first unused image (most recent, not random)
@@ -218,14 +210,13 @@ def run_pipeline():
                 return n.image_url
         return None
 
+    segments         = topic.visual_segments or []
     rss_img_path     = out_dir / "rss_source_image.jpg"
     broll_video_path = out_dir / "broll_source.mp4"
-    segments         = topic.visual_segments or []
     used_image_urls: set = set()
     if getattr(topic, "source_image_url", ""):
         used_image_urls.add(topic.source_image_url)
 
-    # Download the topic's primary RSS image
     if getattr(topic, "source_image_url", ""):
         print(f"Downloading main RSS image: {topic.source_image_url}")
         _download_img(topic.source_image_url, rss_img_path)
@@ -233,62 +224,67 @@ def run_pipeline():
     broll_paths: list   = []
     broll_timings: list = []
 
-    # ── First B-roll: main RSS image covering the first BROLL_EVERY segments ──
-    if rss_img_path.exists() and rss_img_path.stat().st_size > 1024:
-        t0_start, t0_dur = _group_timing(0, BROLL_EVERY)
-        print(f"Applying Ken Burns effect to main image ({t0_dur:.1f}s)...")
-        if _make_kenburns(rss_img_path, broll_video_path, t0_dur):
-            broll_paths.append(str(broll_video_path))
-            broll_timings.append((t0_start, t0_dur))
+    # Place B-rolls at fixed intervals through the full audio duration.
+    # Image for each slot: the visual segment(s) whose spoken window overlaps
+    # that timestamp, scored by word-overlap against news titles.
+    b_start  = 0.0
+    slot_idx = 0
 
-    # ── Remaining B-rolls: one per group of BROLL_EVERY segments ──────────────
-    seg_start = BROLL_EVERY   # first group already covered by main RSS image
-    grp_idx   = 1
+    while b_start + BROLL_DUR <= total_s:
+        b_end = b_start + BROLL_DUR
 
-    while seg_start < len(segments):
-        group = segments[seg_start : seg_start + BROLL_EVERY]
-        g_start, g_dur = _group_timing(seg_start, len(group))
-
-        # Collect all broll_queries from every segment in this group
+        # 1. Find visual segments whose spoken window overlaps [b_start, b_end]
         all_queries: list = []
-        for seg in group:
-            qs = seg.get("broll_queries", [])
-            if not qs and seg.get("broll_query"):
-                qs = [seg["broll_query"]]
-            all_queries.extend(qs)
+        for s_idx, (s_st, s_dur) in enumerate(seg_timings):
+            s_end = s_st + s_dur
+            if s_st < b_end and s_end > b_start and s_idx < len(segments):
+                seg = segments[s_idx]
+                qs  = seg.get("broll_queries", [])
+                if not qs and seg.get("broll_query"):
+                    qs = [seg["broll_query"]]
+                all_queries.extend(qs)
 
-        found_url = _best_url(all_queries, used_image_urls)
+        # 2. If no queries, fall back to the topic title
+        if not all_queries:
+            all_queries = [topic.topic_title] if getattr(topic, "topic_title", "") else []
 
-        if found_url:
-            used_image_urls.add(found_url)
-            img_path = out_dir / f"rss_img_grp{grp_idx}.jpg"
-            vid_path = out_dir / f"broll_grp{grp_idx}.mp4"
-            n_end = seg_start + len(group) - 1
-            print(f"  B-roll {grp_idx} (segs {seg_start}–{n_end}, {g_dur:.1f}s): {found_url}")
-            if _download_img(found_url, img_path) and _make_kenburns(img_path, vid_path, g_dur):
-                broll_paths.append(str(vid_path))
-                broll_timings.append((g_start, g_dur))
+        # 3. Use the main RSS image for the very first slot (most relevant)
+        if slot_idx == 0 and rss_img_path.exists() and rss_img_path.stat().st_size > 1024:
+            print(f"  B-roll slot 0 (t={b_start:.1f}s): main RSS image ({BROLL_DUR}s)")
+            if _make_kenburns(rss_img_path, broll_video_path, BROLL_DUR):
+                broll_paths.append(str(broll_video_path))
+                broll_timings.append((b_start, BROLL_DUR))
+        else:
+            found_url = _best_url(all_queries, used_image_urls)
+            if found_url:
+                used_image_urls.add(found_url)
+                img_path = out_dir / f"rss_img_b{slot_idx}.jpg"
+                vid_path = out_dir / f"broll_b{slot_idx}.mp4"
+                print(f"  B-roll slot {slot_idx} (t={b_start:.1f}s, {BROLL_DUR}s): {found_url}")
+                if _download_img(found_url, img_path) and _make_kenburns(img_path, vid_path, BROLL_DUR):
+                    broll_paths.append(str(vid_path))
+                    broll_timings.append((b_start, BROLL_DUR))
+                elif broll_paths:
+                    broll_paths.append(broll_paths[-1])
+                    broll_timings.append((b_start, BROLL_DUR))
             elif broll_paths:
+                print(f"  B-roll slot {slot_idx}: no image found, reusing previous.")
                 broll_paths.append(broll_paths[-1])
-                broll_timings.append((g_start, g_dur))
-        elif broll_paths:
-            print(f"  No image found for B-roll group {grp_idx}; reusing previous clip.")
-            broll_paths.append(broll_paths[-1])
-            broll_timings.append((g_start, g_dur))
+                broll_timings.append((b_start, BROLL_DUR))
 
-        seg_start += BROLL_EVERY
-        grp_idx   += 1
+        b_start  += BROLL_INTERVAL
+        slot_idx += 1
 
     # 5. Assemble & Upload
     print("Assembling final video...")
     final_vid = out_dir / "final_avatar_video.mp4"
     assembler.assemble(clip_paths, broll_paths, str(final_vid), str(voice_path), broll_timings)
-    
+
     print("Uploading to YouTube...")
     uploader = YouTubeUploader(settings)
     if final_vid.exists() and os.path.getsize(final_vid) > 0:
         uploader.upload(str(final_vid), topic)
-        
+
     print("Pipeline complete!")
 
 if __name__ == "__main__":
