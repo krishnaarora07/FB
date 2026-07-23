@@ -430,9 +430,11 @@ sentence so a viewer watching on repeat feels the video never ends."""
             hashtag_instructions = '["#FIFAWorldCup2026", "#Football", "#Shorts", "... plus 10-15 highly optimized 100% fresh hashtags specific ONLY to this exact story"]'
             visuals_instructions = "Map each beat visually:\n    HOOK   → dramatic action clip\n    TWIST  → reaction clip\n    PROOF  → generic authority visual\n    STAKES → wide/epic visual\n    LOOP   → echo the Hook clip or a wide stadium shot"
 
-        # Approximate words = target_length * 2.1 (avg speaking rate of 2.1 words/sec)
-        word_limit = int(target_length * 2.1)
-        
+        # FishSpeech TTS speaks at ~2.5 words/sec. word_limit caps the script.
+        # min_words forces enough content to fill the full target duration.
+        word_limit = int(target_length * 2.5)   # hard max — never exceed
+        min_words  = int(target_length * 2.0)   # hard min — must reach this
+
         producer_role = "long-form YouTube documentary producer" if is_long_form else "YouTube Shorts producer"
         
         if is_long_form:
@@ -453,40 +455,43 @@ Each beat should contain 1 to 2 sentences advancing the story.
   ],'''
         else:
             formula_instructions = '''
-You MUST structure the script using this exact 5-beat formula:
+You MUST structure the script using this exact 5-beat formula.
+Every sentence MUST be grammatically complete — never end on a partial thought or mid-sentence.
 
-  BEAT 1 — HOOK (1–2 sentences)
-    • The very first sentence must create INSTANT intrigue or shock.
-    • 3–8 words max for the opening line. No preamble, no context.
-    • Start mid-action. "Messi refused." not "In today's video, we look at Messi's contract."
+  BEAT 1 — HOOK (3–5 sentences)
+    • The very first sentence creates INSTANT intrigue or shock.
+    • 5–10 words for the opening line. No preamble, no context.
+    • Start mid-action: "Messi refused." not "In today\'s video, we look at Messi\'s contract."
+    • The next 2-4 sentences immediately build on the hook with vivid detail and context.
     • Only use facts present in the news item.
 
-  BEAT 2 — TWIST (1–2 sentences)
-    • Immediately subvert or deepen the expectation set by the hook.
-    • Add the detail that makes the hook make sense — but keep it sharp.
+  BEAT 2 — TWIST (3–5 sentences)
+    • Subvert or deepen the expectation set by the hook.
+    • Add the detail that makes the hook make sense — keep it punchy.
+    • Include one specific supporting fact (number, name, date) and expand with 2-3 sentences.
     • Still only facts from the source.
 
-  BEAT 3 — PROOF (1 sentence)
-    • One concrete, specific fact — a number, a name, a quote, a source — that makes it real.
-    • This is the credibility beat. ONLY use details verbatim from the news item.
-    • Format: "According to [source], ..." or just state the fact directly if VERIFIED.
+  BEAT 3 — PROOF (3–4 sentences)
+    • First sentence: "According to [source], ..." or a verbatim fact from the news item.
+    • Expand with 2-3 additional sentences of verified context from the news.
+    • This is the credibility beat. Every word must be directly from the news item.
 
-  BEAT 4 — STAKES (1–2 sentences)
+  BEAT 4 — STAKES (3–5 sentences)
     • Why does this matter? Who wins, who loses, what changes?
-    • Keep it grounded — extrapolate only what the source implies, not what you invent.
+    • Explore the full implications in 3-5 complete sentences.
+    • Keep grounded — extrapolate only what the source explicitly implies.
 
-  BEAT 5 — INVISIBLE LOOP (1 sentence)
+  BEAT 5 — INVISIBLE LOOP (2–3 sentences)
     ⚠️ THIS IS MACHINE-CHECKED. Missing or generic loops = automatic rejection.
-    • The loop sentence must feel like a NATURAL CONTINUATION of the story, NOT a labelled ending.
-    • It must echo the exact subject (player name / club / event) from BEAT 1.
-    • The viewer should feel the video is still going, not that it just ended.
+    • The loop sentences must feel like a NATURAL CONTINUATION of the story, NOT a labelled ending.
+    • They must echo the exact subject (player name / club / event) from BEAT 1.
+    • The viewer should feel the story is still unfolding, not that the video just ended.
     • BAD: "What a story. Drop your thoughts below."  ← generic, no echo, rejected.
-    • BAD: "And that's why football is amazing."       ← no subject echo, rejected.
+    • BAD: "And that\'s why football is amazing."       ← no subject echo, rejected.
     • GOOD (if Beat 1 = "Messi refused €300 million"):
-        "And that €300 million refusal? It's the reason Messi's next move will define his legacy."
-    • GOOD (if Beat 1 = "The referee missed a clear penalty"):
-        "Which is exactly why that referee's name is still trending worldwide."
-    • The loop sentence must share at least one 4+ letter keyword with Beat 1. Non-negotiable.
+        "And that €300 million refusal? It\'s the reason Messi\'s next move will define his legacy forever. The question now is: what does he do next?"
+    • The final sentence MUST be complete — never end on a partial thought.
+    • The loop must share at least one 4+ letter keyword with Beat 1. Non-negotiable.
 '''
             json_example = '''
   "visual_segments": [
@@ -575,7 +580,8 @@ Before writing a single word of the script, you MUST:
 ═══════════════════════════════════════════
 STEP 2 — SCRIPT: VIRAL FORMULA + INVISIBLE LOOP
 ═══════════════════════════════════════════
-MAXIMUM LENGTH: Under {word_limit} words ({target_length}s target). Hard limit — do NOT exceed.
+MINIMUM LENGTH: At least {min_words} words ({target_length}s target). Hard floor — do NOT write fewer.
+MAXIMUM LENGTH: Under {word_limit} words ({target_length}s target). Hard ceiling — do NOT exceed.
 
 {formula_instructions}
 

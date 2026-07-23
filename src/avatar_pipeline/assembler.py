@@ -197,7 +197,24 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
     else:
         # Fallback: no original audio supplied, use whatever is in the avatar clip.
         cmd.extend(["-map", "0:a", "-c:a", "aac", "-ar", "44100", "-ac", "2"])
-        
+
+    # Pin output duration to EXACTLY the audio length.
+    # Without this, if the avatar clip is 1-2 s shorter than the TTS audio,
+    # FFmpeg stops at the video EOF and the final sentence is silently cut.
+    # If the avatar is longer than the audio, the extra silent frames are trimmed.
+    if base_audio_path:
+        audio_dur_res = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", base_audio_path],
+            capture_output=True, text=True
+        )
+        try:
+            audio_dur = float(audio_dur_res.stdout.strip())
+            cmd.extend(["-t", f"{audio_dur:.3f}"])
+            print(f"  Output duration pinned to audio: {audio_dur:.2f}s")
+        except ValueError:
+            pass  # ffprobe failed; let FFmpeg decide naturally
+
     cmd.extend(["-c:v", "libx264", "-preset", "fast", "-crf", "23", output_path])
     
     result = subprocess.run(cmd, capture_output=True, text=True)
