@@ -145,7 +145,7 @@ longcat_image = (
     )
     # Override the GitHub script with our local version that has --use_int8
     # and offload_kv_cache=True — without this our optimisations never execute.
-    .copy_local_file(
+    .add_local_file(
         "longcat_script.py",
         "/workspace/LongCat-Video/run_demo_avatar_single_audio_to_video.py"
     )
