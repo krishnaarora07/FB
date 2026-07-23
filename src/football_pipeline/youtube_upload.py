@@ -60,9 +60,20 @@ class YouTubeUploader:
         now = datetime.now(timezone.utc)
         published_at_str = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
+        # Ensure YouTube classifies this as a Short.
+        # YouTube's algorithm uses #Shorts in the TITLE as the primary
+        # classification signal — description hashtags alone are not reliable.
+        raw_title = topic.youtube_title.strip()
+        shorts_tag = " #Shorts"
+        if "#shorts" not in raw_title.lower():
+            max_base = 100 - len(shorts_tag)
+            raw_title = raw_title[:max_base] + shorts_tag
+        else:
+            raw_title = raw_title[:100]
+
         body = {
             "snippet": {
-                "title": topic.youtube_title[:100],
+                "title": raw_title,
                 "description": self._description(topic),
                 "tags": [tag.lstrip("#") for tag in topic.hashtags],
                 "categoryId": self.settings.youtube_upload_category_id,
