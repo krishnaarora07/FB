@@ -66,7 +66,7 @@ def normalize_video(src: str, dst: str, crop_to_fill: bool = False, keep_audio: 
         
     subprocess.run(cmd, capture_output=True, check=True)
 
-def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, base_audio_path: str = None):
+def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, base_audio_path: str = None, broll_timings: list[tuple] = None):
     work_dir = os.path.dirname(output_path)
     if not clip_paths:
         raise ValueError("No clip paths provided.")
@@ -106,10 +106,19 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
     
     N = len(norm_brolls)
     if N > 0:
-        spacing = total_dur / (N + 1)
+        # Use Whisper-aligned timings when available; fall back to even spacing.
+        if broll_timings and len(broll_timings) == N:
+            timings = broll_timings
+        else:
+            # Even-spacing fallback
+            spacing = total_dur / (N + 1)
+            timings = [(spacing * (i + 1), 5.0) for i in range(N)]
+
         for i in range(N):
-            start_t = spacing * (i + 1)
-            end_t = start_t + 5.0
+            start_t, broll_dur = timings[i]
+            # Clamp so B-roll never runs past the end of the video
+            start_t = min(start_t, max(0.0, total_dur - broll_dur - 0.5))
+            end_t = min(start_t + broll_dur, total_dur)
             
             # The PiP source for this B-roll is input i+1
             pip_in = f"{i+1}:v"
@@ -164,16 +173,30 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
     for bp in norm_brolls:
         cmd.extend(["-i", bp])
         
+    # Track the index of the audio input so we can map it explicitly.
+    # Input 0          = temp_avatar (avatar video, N copies follow)
+    # Inputs 1..N      = temp_avatar copies (one per broll, for PiP layers)
+    # Inputs N+1..2N   = normalised broll clips
+    # Input 2N+1       = base_audio_path (original TTS WAV, if provided)
+    audio_input_idx = 1 + N + N  # = 2*N + 1
+
     if base_audio_path:
         cmd.extend(["-i", base_audio_path])
-        
+
     if filter_chains:
         cmd.extend(["-filter_complex", ";".join(filter_chains), "-map", f"[{last_v}]"])
     else:
         cmd.extend(["-map", "0:v"])
-        
-    # Map the perfectly synced audio from temp_avatar instead of the base_audio_path
-    cmd.extend(["-map", "0:a", "-c:a", "aac", "-ar", "44100", "-ac", "2"])
+
+    # Always use the original TTS WAV as the audio source.
+    # The audio embedded in temp_avatar by LongCat's save_video_ffmpeg can be
+    # silently truncated (ffmpeg -shortest behaviour inside Modal), causing the
+    # last words of the script to be cut from the final video.
+    if base_audio_path:
+        cmd.extend(["-map", f"{audio_input_idx}:a", "-c:a", "aac", "-ar", "44100", "-ac", "2"])
+    else:
+        # Fallback: no original audio supplied, use whatever is in the avatar clip.
+        cmd.extend(["-map", "0:a", "-c:a", "aac", "-ar", "44100", "-ac", "2"])
         
     cmd.extend(["-c:v", "libx264", "-preset", "fast", "-crf", "23", output_path])
     

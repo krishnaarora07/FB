@@ -327,7 +327,7 @@ def generate(args):
             generator=generator,
             output_type='both',
             use_kv_cache=True,
-            offload_kv_cache=False,
+            offload_kv_cache=True,   # Evict KV cache to CPU between segments -> more segments per A100 80GB
             enhance_hf=True if not use_distill else False,
             audio_emb=audio_emb,
             ref_latent=ref_latent,

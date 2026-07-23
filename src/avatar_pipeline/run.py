@@ -82,45 +82,44 @@ def run_pipeline():
         print(f"TTS failed: {e}.")
         raise RuntimeError(f"Voiceover generation failed: {e}")
         
-    # 2b. Split Voiceover intelligently to preserve lip sync
-    # LongCat lip sync drifts if audio chunks exceed ~15s. We split on silences and pack up to 12s.
-    audio = AudioSegment.from_wav(voice_path)
-    from pydub.silence import split_on_silence
-    
-    print("Splitting audio on silences to preserve lip sync...")
-    chunks = split_on_silence(
-        audio,
-        min_silence_len=400,
-        silence_thresh=audio.dBFS - 14,
-        keep_silence=200
-    )
-    
-    max_chunk_len = 12 * 1000 # 12 seconds
-    if not chunks:
-        # Fallback if silence splitting fails
-        chunks = [audio[i:i+max_chunk_len] for i in range(0, len(audio), max_chunk_len)]
-        
-    audio_paths = []
-    current_chunk = AudioSegment.empty()
-    chunk_idx = 0
-    
-    for chunk in chunks:
-        if len(current_chunk) + len(chunk) > max_chunk_len and len(current_chunk) > 0:
-            cpath = out_dir / f"audio_{chunk_idx:02d}.wav"
-            current_chunk.export(cpath, format="wav")
-            audio_paths.append(str(cpath))
-            chunk_idx += 1
-            current_chunk = chunk
-        else:
-            current_chunk += chunk
-            
-    if len(current_chunk) > 0:
-        cpath = out_dir / f"audio_{chunk_idx:02d}.wav"
-        current_chunk.export(cpath, format="wav")
-        audio_paths.append(str(cpath))
-        
-    print(f"Split voiceover into {len(audio_paths)} optimal chunks.")
-        
+    # 2b. Pass the full voiceover as a single audio file.
+    # LongCat's generate_avc continuation runs all segments within ONE GPU call,
+    # which is the only way to preserve lip sync across the full video.
+    # VRAM headroom comes from --use_int8 + offload_kv_cache in modal_avatar.py / longcat_script.py.
+    audio_paths = [str(voice_path)]
+    total_s = len(AudioSegment.from_wav(str(voice_path))) / 1000
+    print(f"  Full voiceover: {total_s:.1f}s -> 1 GPU call (INT8 + KV-offload handles up to ~90s)")
+
+    # 2c. Compute per-segment spoken timestamps from Whisper word alignment.
+    # This is what drives B-roll timing later — each broll shows exactly when
+    # the avatar is speaking the sentence it was selected for.
+    seg_timings = []  # list of (start_s, spoken_duration_s) per visual_segment
+    _segments_list = topic.visual_segments or []
+    _words_path = voice_path.with_suffix('.words.json')
+    if _words_path.exists() and _segments_list:
+        _words_data = json.loads(_words_path.read_text(encoding='utf-8'))
+        _word_pos = 0
+        for _seg in _segments_list:
+            _seg_word_count = len(_seg.get('text', '').split())
+            if _word_pos < len(_words_data):
+                _start_s = _words_data[_word_pos]['offset'] / 10_000_000
+                _end_idx = min(_word_pos + max(_seg_word_count - 1, 0), len(_words_data) - 1)
+                _end_s = (_words_data[_end_idx]['offset'] + _words_data[_end_idx]['duration']) / 10_000_000
+                # Clamp: show each B-roll for at least 4s, at most 6s
+                _dur_s = max(4.0, min(_end_s - _start_s, 6.0))
+            else:
+                _start_s = seg_timings[-1][0] + seg_timings[-1][1] if seg_timings else 0.0
+                _dur_s = 5.0
+            seg_timings.append((_start_s, _dur_s))
+            _word_pos += _seg_word_count
+        print(f"  Computed {len(seg_timings)} segment timings from Whisper alignment.")
+    else:
+        # Fallback: distribute evenly if words.json is missing
+        _n = len(_segments_list) or 1
+        for _i in range(_n):
+            seg_timings.append((_i * (total_s / _n), 5.0))
+        print("  Warning: words.json not found, falling back to even B-roll spacing.")
+
     # 3. Avatar clips
     print("Generating avatar clips via Modal...")
     photo_path = Path("assets/avatar_photo.jpg")
@@ -144,7 +143,8 @@ def run_pipeline():
     # 4. B-roll clips (Using RSS News Images)
     print("Generating B-roll clips from RSS news images...")
     broll_paths = []
-    
+    broll_timings = []  # parallel list: (start_s, duration_s) for each entry in broll_paths
+
     rss_img_path = out_dir / "rss_source_image.jpg"
     broll_video_path = out_dir / "broll_source.mp4"
     
@@ -157,17 +157,20 @@ def run_pipeline():
         except Exception as e:
             print(f"Failed to download main RSS image: {e}")
             
-    # First B-roll is the main RSS image Ken Burns effect
+    # First B-roll is the main RSS image Ken Burns effect — timed to segment 0
     if rss_img_path.exists() and rss_img_path.stat().st_size > 1024:
+        _t0 = seg_timings[0] if seg_timings else (0.0, 5.0)
         try:
             print("Applying Ken Burns effect to main image...")
+            _kb_dur = max(4, int(round(_t0[1])))
             subprocess.run([
                 "ffmpeg", "-y", "-loop", "1", "-i", str(rss_img_path),
-                "-vf", "scale=2560:1440:force_original_aspect_ratio=increase,crop=2560:1440,zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=1280x720",
-                "-c:v", "libx264", "-t", "5", "-pix_fmt", "yuv420p", "-r", "25",
+                "-vf", f"scale=2560:1440:force_original_aspect_ratio=increase,crop=2560:1440,zoompan=z='min(zoom+0.0015,1.5)':d={_kb_dur*25}:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=1280x720",
+                "-c:v", "libx264", "-t", str(_kb_dur), "-pix_fmt", "yuv420p", "-r", "25",
                 str(broll_video_path)
             ], capture_output=True, check=True)
             broll_paths.append(str(broll_video_path))
+            broll_timings.append(_t0)
         except subprocess.CalledProcessError as e:
             print(f"Failed to create main B-roll video: {e}")
 
@@ -209,6 +212,7 @@ def run_pipeline():
             if valid_news:
                 found_url = random.choice(valid_news).image_url
                 
+        # For each segment, render its B-roll with the exact duration it will be displayed
         if found_url:
             used_image_urls.add(found_url)
             img_path = out_dir / f"rss_img_{i}.jpg"
@@ -220,25 +224,31 @@ def run_pipeline():
                     img_path.write_bytes(response.read())
                     
                 if img_path.exists() and img_path.stat().st_size > 1024:
+                    _st = seg_timings[i] if i < len(seg_timings) else (0.0, 5.0)
+                    _kb_dur = max(4, int(round(_st[1])))
                     subprocess.run([
                         "ffmpeg", "-y", "-loop", "1", "-i", str(img_path),
-                        "-vf", "scale=2560:1440:force_original_aspect_ratio=increase,crop=2560:1440,zoompan=z='min(zoom+0.0015,1.5)':d=125:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=1280x720",
-                        "-c:v", "libx264", "-t", "5", "-pix_fmt", "yuv420p", "-r", "25",
+                        "-vf", f"scale=2560:1440:force_original_aspect_ratio=increase,crop=2560:1440,zoompan=z='min(zoom+0.0015,1.5)':d={_kb_dur*25}:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=1280x720",
+                        "-c:v", "libx264", "-t", str(_kb_dur), "-pix_fmt", "yuv420p", "-r", "25",
                         str(vid_path)
                     ], capture_output=True, check=True)
                     broll_paths.append(str(vid_path))
+                    broll_timings.append(_st)
                     continue # Success!
             except Exception as e:
                 print(f"Failed to process news image for segment {i}: {e}")
                 
         # If we failed to find or process an image for this segment, repeat the last available B-roll
+        # but still advance the timing to the current segment's window
         if broll_paths:
+            _st = seg_timings[i] if i < len(seg_timings) else (broll_timings[-1][0] + broll_timings[-1][1], 5.0)
             broll_paths.append(broll_paths[-1])
+            broll_timings.append(_st)
         
     # 5. Assemble & Upload
     print("Assembling final video...")
     final_vid = out_dir / "final_avatar_video.mp4"
-    assembler.assemble(clip_paths, broll_paths, str(final_vid), str(voice_path))
+    assembler.assemble(clip_paths, broll_paths, str(final_vid), str(voice_path), broll_timings)
     
     print("Uploading to YouTube...")
     uploader = YouTubeUploader(settings)

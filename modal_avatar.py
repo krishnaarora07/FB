@@ -143,6 +143,12 @@ longcat_image = (
         "uv pip install --system transformers accelerate diffusers sentencepiece einops loguru ftfy regex imageio imageio-ffmpeg",
         "uv pip install --system https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3.post1+cu12torch2.5cxx11abiFALSE-cp310-cp310-linux_x86_64.whl"
     )
+    # Override the GitHub script with our local version that has --use_int8
+    # and offload_kv_cache=True — without this our optimisations never execute.
+    .copy_local_file(
+        "longcat_script.py",
+        "/workspace/LongCat-Video/run_demo_avatar_single_audio_to_video.py"
+    )
 )
 
 @app.function(image=longcat_image, gpu="a100-80gb", timeout=3600, volumes={"/models": volume}, retries=3)
@@ -160,13 +166,24 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
     with open(photo_path, "wb") as f: f.write(photo_bytes)
         
     base_model_dir = "/models/LongCat-Video"
-    from huggingface_hub import snapshot_download
-    print("Ensuring LongCat Base model is downloaded...")
-    snapshot_download(repo_id="meituan-longcat/LongCat-Video", local_dir=base_model_dir)
+    if not os.path.exists(os.path.join(base_model_dir, "config.json")):
+        from huggingface_hub import snapshot_download
+        print("Downloading LongCat Base model (first run only)...")
+        snapshot_download(repo_id="meituan-longcat/LongCat-Video", local_dir=base_model_dir)
+        volume.commit()  # CRITICAL: persist to volume so next run skips this download
+        print("LongCat Base model cached.")
+    else:
+        print("LongCat Base model already cached — skipping download.")
 
     model_dir = "/models/LongCat-Video-Avatar-1.5"
-    print("Ensuring LongCat Avatar model is downloaded...")
-    snapshot_download(repo_id="meituan-longcat/LongCat-Video-Avatar-1.5", local_dir=model_dir)
+    if not os.path.exists(os.path.join(model_dir, "config.json")):
+        from huggingface_hub import snapshot_download
+        print("Downloading LongCat Avatar model (first run only)...")
+        snapshot_download(repo_id="meituan-longcat/LongCat-Video-Avatar-1.5", local_dir=model_dir)
+        volume.commit()  # CRITICAL: persist to volume so next run skips this download
+        print("LongCat Avatar model cached.")
+    else:
+        print("LongCat Avatar model already cached — skipping download.")
         
     input_json_path = "/tmp/input.json"
     input_data = {
@@ -185,14 +202,33 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
         rate = f.getframerate()
         duration = frames / float(rate)
         
-    # LongCat 1.5 calculates num_segments as:
-    # duration = 3.72 + (num_segments - 1) * 3.2
+    # LongCat 1.5 segment formula: duration = 3.72 + (num_segments - 1) * 3.2
+    # We add +1 as a safety buffer so that math.ceil rounding never leaves
+    # the final words of the script without a corresponding video frame.
     if duration <= 3.72:
         num_segments = 1
     else:
-        num_segments = math.ceil((duration - 3.72) / 3.2) + 1
+        num_segments = math.ceil((duration - 3.72) / 3.2) + 1 + 1  # +1 for safety
+
+    # Hard-cap as safety valve so we never OOM. At ~28 segments we're safely
+    # within A100 80GB with INT8 + KV-cache offload (~90s max).
+    MAX_SEGMENTS = 28
+    if num_segments > MAX_SEGMENTS:
+        print(f"WARNING: Audio is {duration:.1f}s ({num_segments} segments needed). "
+              f"Capping at {MAX_SEGMENTS} segments ({3.72 + (MAX_SEGMENTS-1)*3.2:.1f}s). "
+              f"The script is too long — shorten it to under ~85s.")
+        num_segments = MAX_SEGMENTS
+
+    # Clean output dir so stale segments from a previous warm-container run
+    # can't pollute the file list we pick the final video from.
+    out_dir = "/tmp/output"
+    if os.path.exists(out_dir):
+        import shutil as _shutil
+        _shutil.rmtree(out_dir)
+    os.makedirs(out_dir)
 
     os.chdir("/workspace/LongCat-Video")
+
     cmd = [
         "torchrun", "--nproc_per_node=1",
         "run_demo_avatar_single_audio_to_video.py",
@@ -201,6 +237,7 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
         "--output_dir", "/tmp/output",
         "--model_type", "avatar-v1.5",
         "--use_distill",
+        "--use_int8",           # Halves DiT VRAM: BF16 80GB cap -> INT8 doubles headroom
         "--num_segments", str(num_segments)
     ]
     
@@ -210,14 +247,28 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
         print("LongCat Error:", result.stderr)
         raise Exception(f"LongCat failed: {result.stderr}")
         
-    out_dir = "/tmp/output"
     files = [f for f in os.listdir(out_dir) if f.endswith(".mp4")]
     if not files:
         raise Exception(f"No output generated. Log: {result.stderr}")
-        
-    out_video = os.path.join(out_dir, files[0])
+
+    # LongCat writes one file per segment:
+    #   Segment 1 → ai2v_demo_1.mp4   (first 3.7s only)
+    #   Segment N → video_continue_N.mp4  (all frames accumulated)
+    # We must pick the file with the highest continuation index to get the
+    # complete video. os.listdir() order is undefined, so sort explicitly.
+    import re as _re
+    def _seg_key(name):
+        m = _re.search(r'(\d+)', name)
+        # Prefer "video_continue_N" over "ai2v_demo_1" by boosting its index
+        base = int(m.group(1)) if m else 0
+        return (0 if name.startswith("ai2v") or name.startswith("at2v") else 1, base)
+
+    files.sort(key=_seg_key)
+    out_video = os.path.join(out_dir, files[-1])  # last = highest segment = complete video
+    print(f"Using final output file: {files[-1]}")
     with open(out_video, "rb") as f:
         return f.read()
+
 
 
 # --- MODEL PRE-DOWNLOAD FUNCTIONS ---

@@ -438,7 +438,9 @@ sentence so a viewer watching on repeat feels the video never ends."""
         if is_long_form:
             num_beats = max(10, int(target_length / 10))
             formula_instructions = f'''
-You MUST structure the script using a continuous narrative flow divided into EXACTLY {num_beats} sequential beats.
+You MUST structure the script as a "Daily Football Round-Up" documentary covering MULTIPLE stories from the feed.
+DO NOT restrict yourself to a single story. You MUST use enough factual stories to write AT LEAST 650 words.
+Structure the script using a continuous narrative flow divided into EXACTLY {num_beats} sequential beats.
 Generate EXACTLY {num_beats} objects in the "visual_segments" JSON array.
 Each beat should contain 1 to 2 sentences advancing the story.
 '''
@@ -495,6 +497,10 @@ You MUST structure the script using this exact 5-beat formula:
     {"beat": "LOOP", "text": "...", "broll_queries": ["...", "..."]}
   ],'''
 
+        long_form_disclaimer = "You are writing a Daily Round-Up. You must cover MULTIPLE stories to reach the required length." if is_long_form else "You are writing a YouTube Short. Base your script on ONE story."
+        story_restriction = "Cover multiple stories if needed to reach the word count." if is_long_form else "Base your script on ONE story explicitly present in the LIVE FOOTBALL NEWS FEED above."
+        combine_restriction = "You may logically transition between different stories." if is_long_form else "Do NOT combine details from two different stories into one fictional narrative."
+
         return f"""
 You are an expert {producer_role} and editor specializing in highly-engaging, factual football (soccer) content.
 
@@ -503,16 +509,17 @@ Today is {date.today().isoformat()}.
 {analytics_str}
 {trends_str}
 {news_str}
-Your task is to produce a complete, ready-to-publish YouTube Shorts video package based on ONE story from the news feed above.
+Your task is to produce a complete, ready-to-publish video script based on the news feed above.
+{long_form_disclaimer}
 
 ╔══════════════════════════════════════════════════╗
 ║   ⚠️  ANTI-HALLUCINATION CONTRACT  ⚠️            ║
 ╚══════════════════════════════════════════════════╝
 Breaking ANY rule below = automatic score of 0 and rejection:
-1. Base your script on ONE story explicitly present in the LIVE FOOTBALL NEWS FEED above.
+1. {story_restriction}
 2. Do NOT invent, extrapolate, or add ANY details not stated in the news item.
    → No fabricated scores, quotes, bans, injuries, transfers, or statistics.
-3. Do NOT combine details from two different stories into one fictional narrative.
+3. {combine_restriction}
 4. [RUMOUR] sources: use hedged language ONLY — "reportedly", "sources claim",
    "according to reports". NEVER state as confirmed fact.
 5. If unsure of any detail — leave it out entirely.
