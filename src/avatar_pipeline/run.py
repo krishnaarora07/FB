@@ -105,11 +105,10 @@ def run_pipeline():
                 _start_s = _words_data[_word_pos]['offset'] / 10_000_000
                 _end_idx = min(_word_pos + max(_seg_word_count - 1, 0), len(_words_data) - 1)
                 _end_s = (_words_data[_end_idx]['offset'] + _words_data[_end_idx]['duration']) / 10_000_000
-                # Clamp: show each B-roll for at least 4s, at most 6s
-                _dur_s = max(4.0, min(_end_s - _start_s, 6.0))
+                _dur_s = max(3.0, _end_s - _start_s)
             else:
                 _start_s = seg_timings[-1][0] + seg_timings[-1][1] if seg_timings else 0.0
-                _dur_s = 5.0
+                _dur_s = 4.0
             seg_timings.append((_start_s, _dur_s))
             _word_pos += _seg_word_count
         print(f"  Computed {len(seg_timings)} segment timings from Whisper alignment.")
@@ -117,7 +116,7 @@ def run_pipeline():
         # Fallback: distribute evenly if words.json is missing
         _n = len(_segments_list) or 1
         for _i in range(_n):
-            seg_timings.append((_i * (total_s / _n), 5.0))
+            seg_timings.append((_i * (total_s / _n), total_s / _n))
         print("  Warning: words.json not found, falling back to even B-roll spacing.")
 
     # 3. Avatar clips
@@ -141,110 +140,145 @@ def run_pipeline():
         clip_paths.append(str(cpath))
         
     # 4. B-roll clips (Using RSS News Images)
+    # ─────────────────────────────────────────────────────────────────────
+    # Strategy
+    #   BROLL_EVERY   – group this many visual segments under ONE B-roll
+    #                   image so each image stays on screen 8-12 s instead
+    #                   of flashing every 3-4 s.
+    #   MIN_BROLL_DUR – never show a B-roll for less than this many seconds.
+    #   Word-overlap scoring replaces the broken substring match so a query
+    #   like "Rodri Ballon d'Or" finds "Man City's Rodri wins Ballon d'Or".
+    # ─────────────────────────────────────────────────────────────────────
     print("Generating B-roll clips from RSS news images...")
-    broll_paths = []
-    broll_timings = []  # parallel list: (start_s, duration_s) for each entry in broll_paths
 
-    rss_img_path = out_dir / "rss_source_image.jpg"
-    broll_video_path = out_dir / "broll_source.mp4"
-    
-    if getattr(topic, "source_image_url", ""):
-        print(f"Downloading main RSS image: {topic.source_image_url}")
+    BROLL_EVERY   = 3      # 1 new image per N visual segments
+    MIN_BROLL_DUR = 8.0    # seconds each image stays on screen
+
+    def _word_overlap(query: str, title: str) -> float:
+        """Fraction of query words that appear in the news title (0–1)."""
+        q = set(re.findall(r'\w+', query.lower()))
+        t = set(re.findall(r'\w+', title.lower()))
+        return len(q & t) / len(q) if q else 0.0
+
+    def _group_timing(start_idx: int, n_segs: int) -> tuple:
+        """(start_s, duration_s) spanning n_segs segments from start_idx."""
+        if not seg_timings or start_idx >= len(seg_timings):
+            fallback = start_idx * (total_s / max(len(_segments_list), 1))
+            return (fallback, MIN_BROLL_DUR)
+        g_start = seg_timings[start_idx][0]
+        end_idx = min(start_idx + n_segs - 1, len(seg_timings) - 1)
+        g_end   = seg_timings[end_idx][0] + seg_timings[end_idx][1]
+        return (g_start, max(MIN_BROLL_DUR, g_end - g_start))
+
+    def _make_kenburns(src: Path, dst: Path, dur_s: float) -> bool:
+        d = max(int(round(dur_s)), int(MIN_BROLL_DUR))
         try:
-            req = urllib.request.Request(topic.source_image_url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=10) as response:
-                rss_img_path.write_bytes(response.read())
-        except Exception as e:
-            print(f"Failed to download main RSS image: {e}")
-            
-    # First B-roll is the main RSS image Ken Burns effect — timed to segment 0
-    if rss_img_path.exists() and rss_img_path.stat().st_size > 1024:
-        _t0 = seg_timings[0] if seg_timings else (0.0, 5.0)
-        try:
-            print("Applying Ken Burns effect to main image...")
-            _kb_dur = max(4, int(round(_t0[1])))
             subprocess.run([
-                "ffmpeg", "-y", "-loop", "1", "-i", str(rss_img_path),
-                "-vf", f"scale=2560:1440:force_original_aspect_ratio=increase,crop=2560:1440,zoompan=z='min(zoom+0.0015,1.5)':d={_kb_dur*25}:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=1280x720",
-                "-c:v", "libx264", "-t", str(_kb_dur), "-pix_fmt", "yuv420p", "-r", "25",
-                str(broll_video_path)
+                "ffmpeg", "-y", "-loop", "1", "-i", str(src),
+                "-vf", (
+                    f"scale=2560:1440:force_original_aspect_ratio=increase,"
+                    f"crop=2560:1440,"
+                    f"zoompan=z='min(zoom+0.0015,1.5)':d={d*25}:"
+                    f"x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=1280x720"
+                ),
+                "-c:v", "libx264", "-t", str(d), "-pix_fmt", "yuv420p", "-r", "25",
+                str(dst)
             ], capture_output=True, check=True)
-            broll_paths.append(str(broll_video_path))
-            broll_timings.append(_t0)
+            return True
         except subprocess.CalledProcessError as e:
-            print(f"Failed to create main B-roll video: {e}")
+            print(f"  Ken Burns failed: {e}")
+            return False
 
-    # For remaining B-rolls, find relevant images from other news items!
-    import random
-    segments = topic.visual_segments or []
-    used_image_urls = set()
+    def _download_img(url: str, dst: Path) -> bool:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                dst.write_bytes(r.read())
+            return dst.exists() and dst.stat().st_size > 1024
+        except Exception as e:
+            print(f"  Image download failed: {e}")
+            return False
+
+    def _best_url(queries: list, used: set) -> str | None:
+        """Score every RSS image against all queries; return the best match."""
+        best_url, best_score = None, 0.0
+        for query in queries:
+            for n in news:
+                if not n.image_url or n.image_url in used:
+                    continue
+                score = _word_overlap(query, n.title)
+                if score > best_score:
+                    best_score, best_url = score, n.image_url
+        # Accept if at least 25 % of query words matched a title
+        if best_score >= 0.25 and best_url:
+            return best_url
+        # Fallback: first unused image (most recent, not random)
+        for n in news:
+            if n.image_url and n.image_url not in used:
+                return n.image_url
+        return None
+
+    rss_img_path     = out_dir / "rss_source_image.jpg"
+    broll_video_path = out_dir / "broll_source.mp4"
+    segments         = topic.visual_segments or []
+    used_image_urls: set = set()
     if getattr(topic, "source_image_url", ""):
         used_image_urls.add(topic.source_image_url)
-        
-    for i, seg in enumerate(segments):
-        # Skip the first one if we already have the main RSS image
-        if i == 0 and len(broll_paths) > 0:
-            continue
-            
-        queries = seg.get("broll_queries", [])
-        if not queries:
-            query = seg.get("broll_query", "")
-            if query: queries = [query]
-            
-        found_url = None
-        # 1. Try to find a news item matching the broll query
-        for query in queries:
-            query_lower = query.lower()
-            matching_news = [n for n in news if n.image_url and n.image_url not in used_image_urls and query_lower in n.title.lower()]
-            if matching_news:
-                found_url = matching_news[0].image_url
-                break
-                
-        # 2. Fallback to any unused news image
-        if not found_url:
-            unused = [n for n in news if n.image_url and n.image_url not in used_image_urls]
-            if unused:
-                found_url = random.choice(unused).image_url
-                
-        # 3. Fallback to any valid news image
-        if not found_url:
-            valid_news = [n for n in news if n.image_url]
-            if valid_news:
-                found_url = random.choice(valid_news).image_url
-                
-        # For each segment, render its B-roll with the exact duration it will be displayed
+
+    # Download the topic's primary RSS image
+    if getattr(topic, "source_image_url", ""):
+        print(f"Downloading main RSS image: {topic.source_image_url}")
+        _download_img(topic.source_image_url, rss_img_path)
+
+    broll_paths: list   = []
+    broll_timings: list = []
+
+    # ── First B-roll: main RSS image covering the first BROLL_EVERY segments ──
+    if rss_img_path.exists() and rss_img_path.stat().st_size > 1024:
+        t0_start, t0_dur = _group_timing(0, BROLL_EVERY)
+        print(f"Applying Ken Burns effect to main image ({t0_dur:.1f}s)...")
+        if _make_kenburns(rss_img_path, broll_video_path, t0_dur):
+            broll_paths.append(str(broll_video_path))
+            broll_timings.append((t0_start, t0_dur))
+
+    # ── Remaining B-rolls: one per group of BROLL_EVERY segments ──────────────
+    seg_start = BROLL_EVERY   # first group already covered by main RSS image
+    grp_idx   = 1
+
+    while seg_start < len(segments):
+        group = segments[seg_start : seg_start + BROLL_EVERY]
+        g_start, g_dur = _group_timing(seg_start, len(group))
+
+        # Collect all broll_queries from every segment in this group
+        all_queries: list = []
+        for seg in group:
+            qs = seg.get("broll_queries", [])
+            if not qs and seg.get("broll_query"):
+                qs = [seg["broll_query"]]
+            all_queries.extend(qs)
+
+        found_url = _best_url(all_queries, used_image_urls)
+
         if found_url:
             used_image_urls.add(found_url)
-            img_path = out_dir / f"rss_img_{i}.jpg"
-            vid_path = out_dir / f"broll_rss_{i}.mp4"
-            print(f"Downloading news image for segment {i}: {found_url}")
-            try:
-                req = urllib.request.Request(found_url, headers={'User-Agent': 'Mozilla/5.0'})
-                with urllib.request.urlopen(req, timeout=10) as response:
-                    img_path.write_bytes(response.read())
-                    
-                if img_path.exists() and img_path.stat().st_size > 1024:
-                    _st = seg_timings[i] if i < len(seg_timings) else (0.0, 5.0)
-                    _kb_dur = max(4, int(round(_st[1])))
-                    subprocess.run([
-                        "ffmpeg", "-y", "-loop", "1", "-i", str(img_path),
-                        "-vf", f"scale=2560:1440:force_original_aspect_ratio=increase,crop=2560:1440,zoompan=z='min(zoom+0.0015,1.5)':d={_kb_dur*25}:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=1280x720",
-                        "-c:v", "libx264", "-t", str(_kb_dur), "-pix_fmt", "yuv420p", "-r", "25",
-                        str(vid_path)
-                    ], capture_output=True, check=True)
-                    broll_paths.append(str(vid_path))
-                    broll_timings.append(_st)
-                    continue # Success!
-            except Exception as e:
-                print(f"Failed to process news image for segment {i}: {e}")
-                
-        # If we failed to find or process an image for this segment, repeat the last available B-roll
-        # but still advance the timing to the current segment's window
-        if broll_paths:
-            _st = seg_timings[i] if i < len(seg_timings) else (broll_timings[-1][0] + broll_timings[-1][1], 5.0)
+            img_path = out_dir / f"rss_img_grp{grp_idx}.jpg"
+            vid_path = out_dir / f"broll_grp{grp_idx}.mp4"
+            n_end = seg_start + len(group) - 1
+            print(f"  B-roll {grp_idx} (segs {seg_start}–{n_end}, {g_dur:.1f}s): {found_url}")
+            if _download_img(found_url, img_path) and _make_kenburns(img_path, vid_path, g_dur):
+                broll_paths.append(str(vid_path))
+                broll_timings.append((g_start, g_dur))
+            elif broll_paths:
+                broll_paths.append(broll_paths[-1])
+                broll_timings.append((g_start, g_dur))
+        elif broll_paths:
+            print(f"  No image found for B-roll group {grp_idx}; reusing previous clip.")
             broll_paths.append(broll_paths[-1])
-            broll_timings.append(_st)
-        
+            broll_timings.append((g_start, g_dur))
+
+        seg_start += BROLL_EVERY
+        grp_idx   += 1
+
     # 5. Assemble & Upload
     print("Assembling final video...")
     final_vid = out_dir / "final_avatar_video.mp4"
