@@ -94,6 +94,7 @@ def generate_voiceover(text: str, ref_audio_bytes: bytes = None, ref_text: str =
             "format": "wav",
             "normalize": True,          # Best audio volume leveling
             "latency": "normal",
+            "speed": 1.15,              # 15% faster — removes sluggish pacing without sounding rushed
             "top_p": 0.8,               # Optimal for stability
             "temperature": 0.6,         # Low temp reduces hallucinations
             "repetition_penalty": 1.2   # Prevent repeating words
