@@ -1,7 +1,11 @@
 name: Avatar Video Pipeline
 
 on:
-  workflow_dispatch:
+  schedule:
+    # Every 3 days at 18:30 UTC = 00:00 IST (midnight)
+    # Cron runs on day 1, 4, 7, 10 ... of each month.
+    - cron: '30 18 */3 * *'
+  workflow_dispatch:  # Keep manual trigger for on-demand runs
 
 jobs:
   avatar:

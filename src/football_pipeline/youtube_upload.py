@@ -154,7 +154,9 @@ class YouTubeUploader:
 
     def _description(self, topic: TopicPackage) -> str:
         hashtags = " ".join(topic.hashtags)
-        parts = [topic.youtube_description.strip(), ""]
+        # Put #Shorts first — YouTube uses description hashtags as a secondary
+        # Shorts classification signal alongside the title tag.
+        parts = ["#Shorts", topic.youtube_description.strip(), ""]
         
         if self.settings.affiliate_link_amazon:
             parts.append(f"🛒 Grab the official match ball & gear: {self.settings.affiliate_link_amazon}")
