@@ -21,7 +21,7 @@ fish_speech_image = (
     )
 )
 
-@app.function(image=fish_speech_image, gpu="l4", timeout=3600, volumes={"/models": volume})
+@app.function(image=fish_speech_image, gpu="l4", timeout=7200, volumes={"/models": volume})
 def generate_voiceover(text: str, ref_audio_bytes: bytes = None, ref_text: str = None) -> bytes:
     import os
     import subprocess
@@ -151,7 +151,10 @@ longcat_image = (
     )
 )
 
-@app.function(image=longcat_image, gpu="a100-80gb", timeout=3600, volumes={"/models": volume}, retries=3)
+# timeout=10800 = 3 hours: 30 segments × ~5-7 min/seg + model load overhead.
+# retries=0: a 3-hr job that OOMs/crashes should surface the error immediately,
+# not silently burn 9 hours of A100 time on retries.
+@app.function(image=longcat_image, gpu="a100-80gb", timeout=10800, volumes={"/models": volume}, retries=0)
 def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
     import json
     import math
@@ -242,10 +245,20 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
     ]
     
     print(f"Running LongCat with {num_segments} segments for {duration:.2f}s audio...")
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    # timeout is set slightly under the Modal function timeout so we always get
+    # a clean error message rather than a silent Modal cancellation.
+    _SUBPROCESS_TIMEOUT = 10500  # 2h 55m — leaves 5 min of breathing room
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=_SUBPROCESS_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            f"LongCat torchrun exceeded {_SUBPROCESS_TIMEOUT}s. "
+            f"Audio was {duration:.1f}s ({num_segments} segments). "
+            "Shorten the script or reduce MAX_SEGMENTS."
+        )
     if result.returncode != 0:
-        print("LongCat Error:", result.stderr)
-        raise Exception(f"LongCat failed: {result.stderr}")
+        print("LongCat Error:", result.stderr[-4000:])  # last 4k chars avoids log truncation
+        raise Exception(f"LongCat failed: {result.stderr[-4000:]}")
         
     files = [f for f in os.listdir(out_dir) if f.endswith(".mp4")]
     if not files:
@@ -274,7 +287,7 @@ def generate_avatar(audio_bytes: bytes, photo_bytes: bytes) -> bytes:
 # --- MODEL PRE-DOWNLOAD FUNCTIONS ---
 
 
-@app.function(image=longcat_image, timeout=3600, volumes={"/models": volume})
+@app.function(image=longcat_image, timeout=7200, volumes={"/models": volume})
 def _download_longcat():
     """Pre-download LongCat-Video-Avatar weights."""
     import os
@@ -295,7 +308,7 @@ def _download_longcat():
     print("LongCat weights cached.")
 
 
-@app.function(image=fish_speech_image, timeout=3600, volumes={"/models": volume})
+@app.function(image=fish_speech_image, timeout=7200, volumes={"/models": volume})
 def _download_fish_speech():
     """Pre-download Fish Speech 1.5 weights into the persistent volume."""
     import os

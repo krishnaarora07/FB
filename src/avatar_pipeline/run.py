@@ -90,6 +90,17 @@ def run_pipeline():
     total_s = len(AudioSegment.from_wav(str(voice_path))) / 1000
     print(f"  Full voiceover: {total_s:.1f}s -> 1 GPU call (INT8 + KV-offload handles up to ~90s)")
 
+    # ── Pre-flight duration guard ─────────────────────────────────────────────
+    # LongCat hard-caps at MAX_SEGMENTS=30 -> ~93s max video.
+    # If the script ran long we should abort HERE (fast, cheap) rather than
+    # letting a 3-hour A100 job run to completion and produce a truncated video.
+    _MAX_AUDIO_S = 95.0
+    if total_s > _MAX_AUDIO_S:
+        raise RuntimeError(
+            f"Voiceover is {total_s:.1f}s — exceeds the {_MAX_AUDIO_S}s LongCat capacity. "
+            "The script is too long. Regenerate with a shorter script (target ~60s / 130-150 words)."
+        )
+
     # 2c. Compute per-segment spoken timestamps from Whisper word alignment.
     # This is what drives B-roll timing later — each broll shows exactly when
     # the avatar is speaking the sentence it was selected for.

@@ -97,54 +97,91 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
         "-i", list_file, "-c", "copy", temp_avatar
     ], check=True)
 
-    # Calculate overlay timings for B-roll
+    # Get avatar video duration
     res = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", temp_avatar], capture_output=True, text=True)
     total_dur = float(res.stdout.strip()) if res.stdout.strip() else 60.0
-    
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # B-ROLL OVERLAY
+    # ──────────────────────────────────────────────────────────────────────────
+    # Design: B-roll fills the full 1280x720 frame; avatar is a 300x300 PiP
+    # in the bottom-right corner with a thin white border.
+    #
+    # Input layout for FFmpeg:
+    #   0        = temp_avatar  (main avatar video — full duration)
+    #   1..N     = norm_brolls  (B-roll clips — one per slot)
+    #   N+1      = base_audio_path (TTS WAV, always last)
+    #
+    # For each B-roll slot i (starting at start_t, lasting broll_dur seconds):
+    #   1. [0:v] → trim to a WINDOW of the avatar that matches start_t..end_t
+    #              → setpts=PTS-STARTPTS to reset its clock
+    #              → crop the centre square out of the letterboxed 1280x720
+    #              → scale to 300x300, add white border → [pip_i]
+    #   2. [i+1:v] → loop/trim to exactly broll_dur seconds → [br_i]
+    #   3. [br_i][pip_i] → overlay pip at bottom-right → [comp_i]
+    #   4. [0:v][comp_i] → overlay comp_i ONLY during [start_t, end_t] → [v_i]
+    # ──────────────────────────────────────────────────────────────────────────
+    N = len(norm_brolls)
     filter_chains = []
     last_v = "0:v"
-    
-    N = len(norm_brolls)
+
     if N > 0:
-        # Use Whisper-aligned timings when available; fall back to even spacing.
         if broll_timings and len(broll_timings) == N:
             timings = broll_timings
         else:
-            # Even-spacing fallback
             spacing = total_dur / (N + 1)
             timings = [(spacing * (i + 1), 5.0) for i in range(N)]
 
         for i in range(N):
             start_t, broll_dur = timings[i]
-            # Clamp so B-roll never runs past the end of the video
-            start_t = min(start_t, max(0.0, total_dur - broll_dur - 0.5))
-            end_t = min(start_t + broll_dur, total_dur)
-            
-            # The PiP source for this B-roll is input i+1
-            pip_in = f"{i+1}:v"
-            # The B-roll source is input N+i+1
-            broll_in = f"{N+i+1}:v"
-            
-            # 1. Scale and pad the PiP source (creates pip_ready)
-            # Crop the black bars from the padded horizontal video to make it square, scale to 320x320, and pad with a border.
-            filter_chains.append(f"[{pip_in}]crop=ih:ih,scale=320:320,pad=332:332:6:6:color=white@0.8[pip_ready_{i}]")
-            
-            # 2. Shift B-roll timestamps to its active window
-            filter_chains.append(f"[{broll_in}]setpts=PTS-STARTPTS+{start_t}/TB[broll_shifted_{i}]")
-            
-            # 3. Overlay the PiP onto the B-roll (shortest=1 ensures the overlay stops when the 5s B-roll stops)
-            # Placed bottom-right for horizontal video layout
-            filter_chains.append(f"[broll_shifted_{i}][pip_ready_{i}]overlay=x=W-w-40:y=H-h-40:shortest=1[broll_pip_{i}]")
-            
-            # 4. Add alpha crossfade to the combined PiP+Broll
-            filter_chains.append(f"[broll_pip_{i}]format=rgba,fade=t=in:st={start_t}:d=0.5:alpha=1,fade=t=out:st={end_t-0.5}:d=0.5:alpha=1[broll_faded_{i}]")
-            
-            # 5. Overlay onto the main background
-            out_v = f"v{i}"
-            filter_chains.append(f"[{last_v}][broll_faded_{i}]overlay=enable='between(t,{start_t},{end_t})':format=auto[{out_v}]")
+            # Clamp so B-roll never runs past end of video
+            start_t = min(float(start_t), max(0.0, total_dur - float(broll_dur) - 0.5))
+            end_t   = min(start_t + float(broll_dur), total_dur)
+            d       = end_t - start_t  # actual display duration in seconds
+
+            broll_in = f"{i+1}:v"  # B-roll clip i is at input index i+1
+
+            # Step 1: Prepare avatar PiP — trim avatar to this window, crop the
+            # active face column (avatar is letterboxed with black sides in 1280x720),
+            # scale to 300x300, add a 6px white border → 312x312 pip.
+            #
+            # The avatar face occupies roughly the centre 414px of the 1280px-wide
+            # letterboxed frame (since LongCat 480p is 480×832 portrait → padded to
+            # 1280×720 with (1280-414)/2 ≈ 433px black bars on each side).
+            # "crop=414:720:433:0" extracts just the face column.
+            # If the exact pixel values vary we crop conservatively: use ih:ih (720×720)
+            # from center — it always captures the face.
+            filter_chains.append(
+                f"[0:v]trim=start={start_t:.3f}:end={end_t:.3f},setpts=PTS-STARTPTS,"
+                f"crop=ih:ih:(iw-ih)/2:0,scale=300:300,"
+                f"pad=312:312:6:6:color=white[pip_{i}]"
+            )
+
+            # Step 2: Trim the B-roll to exactly d seconds (loop if shorter).
+            # norm_brolls are already Ken-Burns 1280x720 clips at exactly broll_dur s,
+            # so trim is just a safety guard.
+            filter_chains.append(
+                f"[{broll_in}]trim=duration={d:.3f},setpts=PTS-STARTPTS[br_{i}]"
+            )
+
+            # Step 3: Composite — B-roll background + avatar PiP in bottom-right.
+            filter_chains.append(
+                f"[br_{i}][pip_{i}]overlay=x=W-w-30:y=H-h-30:shortest=1[comp_{i}]"
+            )
+
+            # Step 4: Stitch comp_i over the master avatar stream only during
+            # the active window. setpts re-clocks comp_i to start at t=start_t.
+            out_v = f"v_{i}"
+            filter_chains.append(
+                f"[comp_{i}]setpts=PTS+{start_t:.3f}/TB[comp_clk_{i}]"
+            )
+            filter_chains.append(
+                f"[{last_v}][comp_clk_{i}]overlay="
+                f"enable='between(t,{start_t:.3f},{end_t:.3f})':format=auto[{out_v}]"
+            )
             last_v = out_v
 
-    # Check for words.json for subtitles
+    # ── Subtitles ─────────────────────────────────────────────────────────────
     ass_path = None
     if base_audio_path:
         words_json = Path(base_audio_path).with_suffix(".words.json")
@@ -162,24 +199,17 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
         filter_chains.append(f"[{last_v}]ass={ass_str}:fontsdir=/usr/share/fonts[vfinal]")
         last_v = "vfinal"
 
-    # Final FFmpeg command
+    # ── Final FFmpeg command ───────────────────────────────────────────────────
+    # Input layout:
+    #   0          = temp_avatar
+    #   1..N       = norm_brolls (one per slot)
+    #   N+1        = base_audio_path (TTS WAV)
+    audio_input_idx = 1 + N  # one avatar + N brolls
+
     print("Compositing final video...")
     cmd = ["ffmpeg", "-y", "-i", temp_avatar]
-    
-    # Add temp_avatar N times for the PiP layers
-    for _ in norm_brolls:
-        cmd.extend(["-i", temp_avatar])
-        
     for bp in norm_brolls:
         cmd.extend(["-i", bp])
-        
-    # Track the index of the audio input so we can map it explicitly.
-    # Input 0          = temp_avatar (avatar video, N copies follow)
-    # Inputs 1..N      = temp_avatar copies (one per broll, for PiP layers)
-    # Inputs N+1..2N   = normalised broll clips
-    # Input 2N+1       = base_audio_path (original TTS WAV, if provided)
-    audio_input_idx = 1 + N + N  # = 2*N + 1
-
     if base_audio_path:
         cmd.extend(["-i", base_audio_path])
 
@@ -188,20 +218,16 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
     else:
         cmd.extend(["-map", "0:v"])
 
-    # Always use the original TTS WAV as the audio source.
-    # The audio embedded in temp_avatar by LongCat's save_video_ffmpeg can be
-    # silently truncated (ffmpeg -shortest behaviour inside Modal), causing the
-    # last words of the script to be cut from the final video.
+    # Always pin audio to the original TTS WAV — LongCat's embedded audio can
+    # be silently truncated inside Modal's container.
     if base_audio_path:
         cmd.extend(["-map", f"{audio_input_idx}:a", "-c:a", "aac", "-ar", "44100", "-ac", "2"])
     else:
-        # Fallback: no original audio supplied, use whatever is in the avatar clip.
         cmd.extend(["-map", "0:a", "-c:a", "aac", "-ar", "44100", "-ac", "2"])
 
-    # Pin output duration to EXACTLY the audio length.
-    # Without this, if the avatar clip is 1-2 s shorter than the TTS audio,
-    # FFmpeg stops at the video EOF and the final sentence is silently cut.
-    # If the avatar is longer than the audio, the extra silent frames are trimmed.
+    # Pin output duration to exactly the TTS audio length.
+    # Without this, if avatar video < audio, FFmpeg stops at video EOF and
+    # silently drops the final sentences.
     if base_audio_path:
         audio_dur_res = subprocess.run(
             ["ffprobe", "-v", "error", "-show_entries", "format=duration",
@@ -219,7 +245,7 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
     
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        raise RuntimeError(f"Final composition failed:\n{result.stderr}")
+        raise RuntimeError(f"Final composition failed:\n{result.stderr[-4000:]}")
         
     # Cleanup
     for p in norm_avatars + norm_brolls + [list_file, temp_avatar]:
