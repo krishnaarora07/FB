@@ -94,11 +94,11 @@ def run_pipeline():
     # LongCat hard-caps at MAX_SEGMENTS=30 -> ~93s max video.
     # If the script ran long we should abort HERE (fast, cheap) rather than
     # letting a 3-hour A100 job run to completion and produce a truncated video.
-    _MAX_AUDIO_S = 95.0
+    _MAX_AUDIO_S = 65.0  # target is 35-40s; 65s gives headroom without wasting GPU
     if total_s > _MAX_AUDIO_S:
         raise RuntimeError(
-            f"Voiceover is {total_s:.1f}s — exceeds the {_MAX_AUDIO_S}s LongCat capacity. "
-            "The script is too long. Regenerate with a shorter script (target ~60s / 130-150 words)."
+            f"Voiceover is {total_s:.1f}s — exceeds the {_MAX_AUDIO_S}s guard. "
+            "The script is too long. Regenerate with a shorter script (target ~45s / 90-110 words)."
         )
 
     # 2c. Compute per-segment spoken timestamps from Whisper word alignment.

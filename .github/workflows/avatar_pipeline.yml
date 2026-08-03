@@ -59,7 +59,7 @@ jobs:
           YOUTUBE_UPLOAD_PRIVACY_STATUS=public
           YOUTUBE_UPLOAD_CATEGORY_ID=17
           OUTPUT_DIR=runs
-          SCRIPT_SECONDS=60
+          SCRIPT_SECONDS=45
           MODAL_TOKEN_ID=${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET=${{ secrets.MODAL_TOKEN_SECRET }}
           ENVEOF
