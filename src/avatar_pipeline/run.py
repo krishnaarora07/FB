@@ -168,11 +168,21 @@ def run_pipeline():
     BROLL_DUR      = 5.0   # seconds each image is visible (user wants 4-5 s)
     BROLL_INTERVAL = 9.0   # seconds between the START of successive images
 
-    def _word_overlap(query: str, title: str) -> float:
-        """Fraction of query words that appear in the news title (0–1)."""
+    def _word_overlap(query: str, title: str, description: str = "") -> float:
+        """Score a query against a news item's title + description.
+
+        Title match counts 1.0x; description match counts 0.5x.
+        Returns the combined fraction of query words that appear in either field.
+        broll_queries are short (1-3 words) so any single-word hit is meaningful.
+        """
         q = set(re.findall(r'\w+', query.lower()))
         t = set(re.findall(r'\w+', title.lower()))
-        return len(q & t) / len(q) if q else 0.0
+        d = set(re.findall(r'\w+', (description or "").lower()))
+        if not q:
+            return 0.0
+        title_hits = len(q & t) / len(q)          # fraction matching title
+        desc_hits  = len(q & d) / len(q) * 0.5    # fraction matching description (half weight)
+        return min(1.0, title_hits + desc_hits)
 
     def _make_kenburns(src: Path, dst: Path, dur_s: float) -> bool:
         d = max(int(round(dur_s)), 4)
@@ -204,18 +214,32 @@ def run_pipeline():
             return False
 
     def _best_url(queries: list, used: set) -> str | None:
-        """Score every RSS image against all queries; return the best match."""
+        """Score every RSS image against ALL queries combined; return the globally best match.
+
+        Strategy:
+          1. For each news item, compute the MAX overlap across all queries.
+          2. Pick the item with the highest overall score (>= 0.15 threshold).
+          3. Fallback: first unused image with an image URL (not random).
+        Threshold of 0.15 means at least 1 word from a 7-word query must match.
+        For short 1-3 word broll_queries, a single word hit = 0.33-1.0 score.
+        """
         best_url, best_score = None, 0.0
-        for query in queries:
-            for n in news:
-                if not n.image_url or n.image_url in used:
-                    continue
-                score = _word_overlap(query, n.title)
-                if score > best_score:
-                    best_score, best_url = score, n.image_url
-        if best_score >= 0.25 and best_url:
+        for n in news:
+            if not n.image_url or n.image_url in used:
+                continue
+            description = getattr(n, 'description', '') or ''
+            # Score this news item against ALL queries — take the best single score
+            item_score = max(
+                (_word_overlap(q, n.title, description) for q in queries),
+                default=0.0
+            )
+            if item_score > best_score:
+                best_score = item_score
+                best_url   = n.image_url
+
+        if best_score >= 0.15 and best_url:
             return best_url
-        # Fallback: first unused image (most recent, not random)
+        # Fallback: most recent unused image (not random)
         for n in news:
             if n.image_url and n.image_url not in used:
                 return n.image_url
