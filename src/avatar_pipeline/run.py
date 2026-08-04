@@ -190,10 +190,12 @@ def run_pipeline():
             subprocess.run([
                 "ffmpeg", "-y", "-loop", "1", "-i", str(src),
                 "-vf", (
-                    f"scale=2560:1440:force_original_aspect_ratio=increase,"
-                    f"crop=2560:1440,"
+                    # Scale up so both dimensions >= output (landscape images get
+                    # their sides cropped to portrait — center crop keeps subject).
+                    f"scale=2160:3840:force_original_aspect_ratio=increase,"
+                    f"crop=2160:3840,"
                     f"zoompan=z='min(zoom+0.0015,1.5)':d={d*25}:"
-                    f"x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=1280x720"
+                    f"x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=1080x1920"
                 ),
                 "-c:v", "libx264", "-t", str(d), "-pix_fmt", "yuv420p", "-r", "25",
                 str(dst)

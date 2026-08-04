@@ -9,16 +9,16 @@ def _build_ass(words: list[dict], ass_path: Path) -> None:
     ass_header = (
         "[Script Info]\n"
         "ScriptType: v4.00+\n"
-        "PlayResX: 1280\n"
-        "PlayResY: 720\n"
+        "PlayResX: 1080\n"
+        "PlayResY: 1920\n"
         "ScaledBorderAndShadow: yes\n"
         "\n"
         "[V4+ Styles]\n"
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, "
         "Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        "Style: Default,DejaVu Sans,48,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,"
-        "-1,0,0,0,100,100,0,0,1,3,1,2,10,10,200,1\n"
+        "Style: Default,DejaVu Sans,64,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,"
+        "-1,0,0,0,100,100,0,0,1,3,1,2,10,10,320,1\n"
         "\n"
         "[Events]\n"
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
@@ -45,8 +45,10 @@ def _build_ass(words: list[dict], ass_path: Path) -> None:
     ass_path.write_text(content, encoding="utf-8")
 
 def normalize_video(src: str, dst: str, crop_to_fill: bool = False, keep_audio: bool = False):
-    w, h = 1280, 720
-    
+    # Output is 1080x1920 portrait (9:16) — mandatory for YouTube Shorts.
+    # Avatar (480x832) fills naturally; landscape B-roll images get center-cropped.
+    w, h = 1080, 1920
+
     if crop_to_fill:
         vf = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}"
     else:
@@ -102,24 +104,21 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
     total_dur = float(res.stdout.strip()) if res.stdout.strip() else 60.0
 
     # ──────────────────────────────────────────────────────────────────────────
-    # B-ROLL OVERLAY
+    # B-ROLL OVERLAY  (portrait 9:16 — 1080×1920)
     # ──────────────────────────────────────────────────────────────────────────
-    # Design: B-roll fills the full 1280x720 frame; avatar is a 300x300 PiP
-    # in the bottom-right corner with a thin white border.
+    # Design: B-roll fills the full 1080×1920 portrait frame; avatar is a
+    # small portrait PiP (240×426, 9:16) at bottom-center with a white border.
     #
-    # Input layout for FFmpeg:
-    #   0        = temp_avatar  (main avatar video — full duration)
-    #   1..N     = norm_brolls  (B-roll clips — one per slot)
-    #   N+1      = base_audio_path (TTS WAV, always last)
+    # Input layout:
+    #   0      = temp_avatar  (portrait 1080×1920, full duration)
+    #   1..N   = norm_brolls  (portrait 1080×1920 Ken-Burns clips)
+    #   N+1    = TTS WAV
     #
-    # For each B-roll slot i (starting at start_t, lasting broll_dur seconds):
-    #   1. [0:v] → trim to a WINDOW of the avatar that matches start_t..end_t
-    #              → setpts=PTS-STARTPTS to reset its clock
-    #              → crop the centre square out of the letterboxed 1280x720
-    #              → scale to 300x300, add white border → [pip_i]
-    #   2. [i+1:v] → loop/trim to exactly broll_dur seconds → [br_i]
-    #   3. [br_i][pip_i] → overlay pip at bottom-right → [comp_i]
-    #   4. [0:v][comp_i] → overlay comp_i ONLY during [start_t, end_t] → [v_i]
+    # Per B-roll slot i:
+    #   1. Trim avatar window → scale to 252×448 PiP (maintains 9:16) → [pip_i]
+    #   2. Trim B-roll to d seconds → [br_i]
+    #   3. [br_i][pip_i] → overlay PiP at bottom-center → [comp_i]
+    #   4. Clock-shift comp_i, overlay onto master avatar stream → [v_i]
     # ──────────────────────────────────────────────────────────────────────────
     N = len(norm_brolls)
     filter_chains = []
@@ -134,43 +133,32 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
 
         for i in range(N):
             start_t, broll_dur = timings[i]
-            # Clamp so B-roll never runs past end of video
             start_t = min(float(start_t), max(0.0, total_dur - float(broll_dur) - 0.5))
             end_t   = min(start_t + float(broll_dur), total_dur)
-            d       = end_t - start_t  # actual display duration in seconds
+            d       = end_t - start_t
 
-            broll_in = f"{i+1}:v"  # B-roll clip i is at input index i+1
+            broll_in = f"{i+1}:v"
 
-            # Step 1: Prepare avatar PiP — trim avatar to this window, crop the
-            # active face column (avatar is letterboxed with black sides in 1280x720),
-            # scale to 300x300, add a 6px white border → 312x312 pip.
-            #
-            # The avatar face occupies roughly the centre 414px of the 1280px-wide
-            # letterboxed frame (since LongCat 480p is 480×832 portrait → padded to
-            # 1280×720 with (1280-414)/2 ≈ 433px black bars on each side).
-            # "crop=414:720:433:0" extracts just the face column.
-            # If the exact pixel values vary we crop conservatively: use ih:ih (720×720)
-            # from center — it always captures the face.
+            # Step 1: Avatar PiP — trim window, scale to 240×426 portrait (9:16),
+            # add 6px white border → 252×438. No square crop needed: avatar is
+            # already portrait-shaped in its 1080×1920 normalized frame.
             filter_chains.append(
                 f"[0:v]trim=start={start_t:.3f}:end={end_t:.3f},setpts=PTS-STARTPTS,"
-                f"crop=ih:ih:(iw-ih)/2:0,scale=300:300,"
-                f"pad=312:312:6:6:color=white[pip_{i}]"
+                f"scale=240:426,pad=252:438:6:6:color=white[pip_{i}]"
             )
 
-            # Step 2: Trim the B-roll to exactly d seconds (loop if shorter).
-            # norm_brolls are already Ken-Burns 1280x720 clips at exactly broll_dur s,
-            # so trim is just a safety guard.
+            # Step 2: Trim B-roll to exact display duration.
             filter_chains.append(
                 f"[{broll_in}]trim=duration={d:.3f},setpts=PTS-STARTPTS[br_{i}]"
             )
 
-            # Step 3: Composite — B-roll background + avatar PiP in bottom-right.
+            # Step 3: Composite — B-roll portrait background + avatar PiP
+            # placed at bottom-center of the 1080×1920 frame.
             filter_chains.append(
-                f"[br_{i}][pip_{i}]overlay=x=W-w-30:y=H-h-30:shortest=1[comp_{i}]"
+                f"[br_{i}][pip_{i}]overlay=x=(W-w)/2:y=H-h-40:shortest=1[comp_{i}]"
             )
 
-            # Step 4: Stitch comp_i over the master avatar stream only during
-            # the active window. setpts re-clocks comp_i to start at t=start_t.
+            # Step 4: Clock-shift composite to start_t, overlay on master stream.
             out_v = f"v_{i}"
             filter_chains.append(
                 f"[comp_{i}]setpts=PTS+{start_t:.3f}/TB[comp_clk_{i}]"
