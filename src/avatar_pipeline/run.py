@@ -215,22 +215,65 @@ def run_pipeline():
             print(f"  Image download failed: {e}")
             return False
 
-    def _best_url(queries: list, used: set) -> str | None:
-        """Score every RSS image against ALL queries combined; return the globally best match.
+    def _wikipedia_img(query: str) -> str | None:
+        """Fetch a relevant image from Wikipedia's free REST API.
 
-        Strategy:
-          1. For each news item, compute the MAX overlap across all queries.
-          2. Pick the item with the highest overall score (>= 0.15 threshold).
-          3. Fallback: first unused image with an image URL (not random).
-        Threshold of 0.15 means at least 1 word from a 7-word query must match.
-        For short 1-3 word broll_queries, a single word hit = 0.33-1.0 score.
+        Wikipedia has photos of every footballer, club, stadium, trophy, referee
+        card, etc. A search for 'Messi' returns his actual Wikipedia photo.
+        No API key needed. Falls back to None if the article has no thumbnail.
         """
+        import json as _json
+        import urllib.parse as _up
+        # Try the query as-is, then football-specific variants
+        candidates = [
+            query,
+            query + " football",
+            query.split()[0] if ' ' in query else None,  # first word only
+        ]
+        for candidate in candidates:
+            if not candidate:
+                continue
+            slug = _up.quote(candidate.strip().replace(' ', '_'))
+            url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{slug}"
+            try:
+                req = urllib.request.Request(
+                    url, headers={"User-Agent": "FootballAvatarBot/1.0 (educational)"}
+                )
+                with urllib.request.urlopen(req, timeout=6) as r:
+                    if r.status == 200:
+                        data = _json.loads(r.read())
+                        thumb = data.get("thumbnail", {})
+                        src = thumb.get("source", "")
+                        if src:
+                            # Prefer larger version: replace /320px- with /640px-
+                            src = src.replace("/320px-", "/640px-")
+                            return src
+            except Exception:
+                continue
+        return None
+
+    def _best_url(queries: list, used: set) -> str | None:
+        """Return the most relevant image URL for the given broll_queries.
+
+        Priority:
+          1. Wikipedia REST API  — returns actual photos of players/clubs/events.
+             Free, no key, highly relevant (Messi query → Messi's Wikipedia photo).
+          2. RSS thumbnail scored by word-overlap against title + description.
+          3. First unused RSS thumbnail as last resort.
+        """
+        # 1. Wikipedia — try each query in order, return first hit
+        for q in queries:
+            wiki_url = _wikipedia_img(q)
+            if wiki_url and wiki_url not in used:
+                print(f"    Wikipedia image found for '{q}'")
+                return wiki_url
+
+        # 2. RSS word-overlap scoring
         best_url, best_score = None, 0.0
         for n in news:
             if not n.image_url or n.image_url in used:
                 continue
             description = getattr(n, 'description', '') or ''
-            # Score this news item against ALL queries — take the best single score
             item_score = max(
                 (_word_overlap(q, n.title, description) for q in queries),
                 default=0.0
@@ -241,7 +284,8 @@ def run_pipeline():
 
         if best_score >= 0.15 and best_url:
             return best_url
-        # Fallback: most recent unused image (not random)
+
+        # 3. Most recent unused RSS image
         for n in news:
             if n.image_url and n.image_url not in used:
                 return n.image_url

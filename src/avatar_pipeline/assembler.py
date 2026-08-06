@@ -77,7 +77,10 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
     norm_avatars = []
     for i, p in enumerate(clip_paths):
         dst = os.path.join(work_dir, f"norm_avatar_{i}.mp4")
-        normalize_video(p, dst, crop_to_fill=False, keep_audio=True)
+        # crop_to_fill=True: LongCat outputs 480x832 (ratio 0.577, not exact 9:16).
+        # With False it pads to 1080x1920 leaving 24px black bars top/bottom.
+        # With True it crops 14px from each side — no black bars, face stays intact.
+        normalize_video(p, dst, crop_to_fill=True, keep_audio=True)
         norm_avatars.append(dst)
         
     print("Normalizing B-roll clips...")
@@ -139,12 +142,12 @@ def assemble(clip_paths: list[str], broll_paths: list[str], output_path: str, ba
 
             broll_in = f"{i+1}:v"
 
-            # Step 1: Avatar PiP — trim window, scale to 240×426 portrait (9:16),
-            # add 6px white border → 252×438. No square crop needed: avatar is
-            # already portrait-shaped in its 1080×1920 normalized frame.
+            # Step 1: Avatar PiP — trim window, scale to 380x676 portrait (9:16),
+            # add 6px white border → 392x688. Avatar already fills 1080x1920 cleanly
+            # (crop_to_fill=True removes the 24px black bars from normalization).
             filter_chains.append(
                 f"[0:v]trim=start={start_t:.3f}:end={end_t:.3f},setpts=PTS-STARTPTS,"
-                f"scale=240:426,pad=252:438:6:6:color=white[pip_{i}]"
+                f"scale=380:676,pad=392:688:6:6:color=white[pip_{i}]"
             )
 
             # Step 2: Trim B-roll to exact display duration.
